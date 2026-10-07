@@ -1,0 +1,31 @@
+[WF:v1]
+TASK: T135
+SEQ: 2
+ROLE: EXECUTOR
+HASH: e0ca5e3678bbd385
+OBJECTIVE: T135 executor — chạy discovery 6 mục theo spec frozen, tạo wf/t135-push-plan.md qua CodeLocal
+CONTEXT_REF: wf/t135-spec.md (FROZEN 134182c2...) + wf/t135-raw.md
+INPUT: SPEC ĐÃ FROZEN: wf/t135-spec.md, sha256=134182c29a273c10e679dd6055be53051f96b0e5044aab701c008fabad33f676, freeze bởi opencode TRƯỚC lượt này (prereg check PASS). Đọc spec trong repo D:\ai-workflow (bạn có quyền đọc) — NỘI DUNG SPEC KHÔNG ĐƯỢC SỬA; nếu thấy spec sai → dừng, VERDICT UNCERTAIN, đừng tự sửa spec.
+
+NHIỆM VỤ EXECUTOR: chạy discovery theo đúng 6 mục + tự chấm acceptance trong spec, ghi kết quả vào wf/t135-push-plan.md (TẠO FILE NÀY QUA CODELOCAL — đây là lần chạy thật đầu tiên qua đủ 3 cơ chế: prereg đã freeze, verifier độc lập sẽ chấm, evidence bundle sẽ bọc).
+
+Gợi ý bước (bạn tự quyết định chi tiết):
+- Mục 1: git status / ls-files / log --all --oneline; quét secret pattern (token, key, password) trong history; kết luận junk có/không.
+- Mục 2: soạn nội dung .gitignore phù hợp (chỉ rule thật sự cần cho repo này — .playwright-mcp/, *.log, temp); ghi rõ file nào sẽ được commit lần tới (qua git-gate, allowlist cho phép wf/*).
+- Mục 3: xác nhận tên đề xuất redsonvietnam/ai-workflow + private + lý do.
+- Mục 4: chuỗi lệnh PowerShell 5.1 push copy-paste được (không chạy lệnh push).
+- Mục 5: quy trình clone trên máy khác + tiếp tục git-gate, xử lý working tree chưa commit.
+- Mục 6: rủi ro + rollback, không force-push.
+- Checklist "trước khi push" (dry-run) đặt cuối plan.
+
+KHÔNG push, KHÔNG tạo remote, KHÔNG sửa file ngoài wf/t135-push-plan.md (và .gitignore CHỈ soạn trong plan, chưa commit ở lượt này).
+ASK: Sau khi ghi xong wf/t135-push-plan.md: tự chạy toàn bộ checklist acceptance trong spec, báo kết quả từng mục. OUTPUT 4 field: VERDICT PASS/FAIL/UNCERTAIN, DELTA (điểm phát hiện mới trong discovery — tên file lạ/junk, secret có/không, kết luận lịch sử), ACTION, EVIDENCE (path + số dòng hoặc hash). DELTA ≤150 từ.
+CONSTRAINTS:
+- tiếng Việt có dấu
+- không push/không tạo remote
+- chỉ ghi file wf/t135-push-plan.md
+OUTPUT:
+  VERDICT: PASS|FAIL|UNCERTAIN
+  DELTA: <new information only>
+  ACTION: <next concrete action>
+  EVIDENCE: <path/hash/test>

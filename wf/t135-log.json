@@ -1,0 +1,19 @@
+{
+  "task": "T135",
+  "purpose": "real task through prereg/verifier/bundle (gate mo T131 theo consensus)",
+  "seq1": {
+    "hash": "80e8c18880a5b65d",
+    "seq": 1,
+    "to": "CHATGPT-architect"
+  },
+  "seq2": {
+    "hash": "e0ca5e3678bbd385",
+    "seq": 2,
+    "to": "CHATGPT-executor"
+  },
+  "seq3": {
+    "hash": "b71ebc3664981a54",
+    "seq": 3,
+    "to": "CHATGPT-architect-review"
+  }
+}

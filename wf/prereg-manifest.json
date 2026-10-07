@@ -1,0 +1,10 @@
+{
+  "frozenAt": "2026-10-07T20:39:14.309Z",
+  "files": [
+    {
+      "path": "wf/t135-spec.md",
+      "sha256": "134182c29a273c10e679dd6055be53051f96b0e5044aab701c008fabad33f676"
+    }
+  ],
+  "note": "Frozen by prereg freeze; changes require re-freeze."
+}

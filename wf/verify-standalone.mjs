@@ -37,8 +37,9 @@ const hash = field(text, 'HASH');
 const role = field(text, 'ROLE');
 const objective = field(text, 'OBJECTIVE');
 const contextRef = field(text, 'CONTEXT_REF') ?? '';
-const input = field(text, 'INPUT') ?? '';
-const ask = field(text, 'ASK') ?? '';
+// INPUT/ASK coi la block (input co the nhieu dong) — khop cach makeEnvelope render.
+const input = text.match(/(?:^|\n)INPUT: ([\s\S]*?)\nASK: /)?.[1] ?? '';
+const ask = text.match(/\nASK: ([\s\S]*?)\n(?:CONSTRAINTS:|OUTPUT:)/)?.[1] ?? '';
 const constraintsBlock = text.match(/\nCONSTRAINTS:\n([\s\S]*?)\nOUTPUT:/);
 const constraints = constraintsBlock ? constraintsBlock[1].split('\n').filter((l) => l.startsWith('- ')).map((l) => l.slice(2)) : [];
 

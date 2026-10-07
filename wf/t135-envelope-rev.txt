@@ -1,0 +1,35 @@
+[WF:v1]
+TASK: T135
+SEQ: 3
+ROLE: CHATGPT
+HASH: b71ebc3664981a54
+OBJECTIVE: T135 architect review — chấm push-plan + audit 3 cơ chế (prereg/verifier/bundle) trước khi opencode chốt wf/t135-audit.md
+CONTEXT_REF: wf/t135-spec.md (frozen) + wf/t135-push-plan.md + bundle anchor 3c3049cb...
+INPUT: Đã chạy xong T135 qua đủ 3 cơ chế. Bạn (architect) review kết quả trước khi opencode chốt audit.
+
+SỰ THẬT ĐÃ XẢY RA (opencode ghi, không suy diễn):
+1. PREREG: wf/t135-spec.md freeze trước executor (sha256 134182c29a273c10e679dd6055be53051f96b0e5044aab701c008fabad33f676); prereg check PASS trước/sau execution.
+2. EXECUTOR (SEQ2, tab3): CodeLocal đọc spec + chạy discovery (git scans), NHƯNG write file wf/t135-push-plan.md bị chặn 3 lần liên tiếp → VERDICT UNCERTAIN. Theo quy tắc ≥2 lần fail → fallback local: opencode tự chạy scan bổ sung (high-signal secret 0 hit; word-scan chỉ docs; không file junk tracked; 29 commit) và VIẾT wf/t135-push-plan.md (đủ 6 mục spec + checklist).
+3. VERIFIER (cơ chế 2): node wf/verify-standalone.mjs T135 lần đầu FAIL — HASH_MISMATCH (expected 3c1aed84c6a13683 vs envelope e0ca5e3678bbd385). NGUYÊN NHÂN: verifier parse INPUT từng dòng trong khi INPUT đa dòng (bug T126 lộ ra lần đầu chạy thật). opencode sửa parser (INPUT/ASK đọc theo block đến 
+ASK:/
+OUTPUT:) → re-test: envelope T135 PASS, regression T130 PASS, tamper (đổi HASH) FAIL hash-mismatch. → gate exit 0.
+4. GATE: prereg PASS + verdict PASS → exit 0 (checks command/allowlist/redTest=false nhưng verdict file thắng theo thiết kế T126).
+5. BUNDLE (cơ chế 3): 9 file (spec, 2 envelope, 2 raw, plan, log, prereg-manifest, verdict) → anchor 3c3049cb7d521a21a7726570cb7afbafdf712d31113cf77396ea014b93306342, bundle-check PASS exit 0.
+6. CHƯA push, chưa tạo remote, chưa commit (các file T135 còn untracked) — push = human gate.
+
+NỘI DUNG CẦN BẠN REVIEW (doc: wf/t135-push-plan.md, spec: wf/t135-spec.md):
+A) Plan có trả lời đủ 6 mục spec không? Lệnh PowerShell 4 (gh repo create ai-workflow --private --source=. --remote= --push) đúng/sạch không? Sai gì không?
+B) Điểm plan phát hiện: .gitignore chưa nằm trong allowlist git-gate → cần bổ sung ^\.gitignore$ — bạn đồng ý cách xử lý này không?
+C) CHECKLIST còn 3 ô chưa tick (verifychain chưa chạy lại sau plan, human gate, post-push ls-remote) — có ô nào thiếu cho "trước khi push" không?
+D) CHẤM 3 CƠ CHẾ: prereg freeze có chặn được sửa spec sau execution không? verifier bug + fix có hợp lệ hay là warning signs? bundle có đủ evidence để audit không? Ghi rõ cơ chế nào PASSED/DEGRADED/PARTIAL (viết đúng thế nào: fallback local vì CodeLocal fail = DEGRADED của executor path, không phải của 3 cơ chế — bạn phân định lại cho chính xác).
+E) Có rủi ro nào plan bỏ sót trước khi push không?
+ASK: Trả lời A-E. Riêng D: verdict từng cơ chế PASSED/DEGRADED/PARTIAL kèm lý do 1 dòng. OUTPUT 4 field; DELTA ≤150 từ (chỉ phần phát hiện mới/sửa plan); ACTION nêu việc opencode làm tiếp.
+CONSTRAINTS:
+- tiếng Việt có dấu
+- không push
+- không sửa file — chỉ review
+OUTPUT:
+  VERDICT: PASS|FAIL|UNCERTAIN
+  DELTA: <new information only>
+  ACTION: <next concrete action>
+  EVIDENCE: <path/hash/test>

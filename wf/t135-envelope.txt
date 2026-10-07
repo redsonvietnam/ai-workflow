@@ -1,0 +1,41 @@
+[WF:v1]
+TASK: T135
+SEQ: 1
+ROLE: CHATGPT
+HASH: 80e8c18880a5b65d
+OBJECTIVE: T135 spec — discovery push repo D:\ai-workflow lên GitHub sạch, chuẩn git (task thật qua 3 cơ chế)
+CONTEXT_REF: wf/t130-consensus.md + DECISIONS.md D13 + facts kiểm tra bởi opencode
+INPUT: ĐÂY LÀ "TASK THẬT" đầu tiên chạy qua đủ 3 cơ chế (prereg freeze → independent verifier → evidence bundle) theo consensus T124/T130, trước khi mở T131. Bạn là architect: ra SPEC + ACCEPTANCE cho discovery, CHƯA tự làm discovery.
+
+TASK: Discovery cách commit/push code mới nhất của D:\ai-workflow lên GitHub sạch sẽ, chuẩn git (commit hợp lý, không bừa), để sau đó user có thể qua máy khác git clone và tiếp tục làm việc với repo local (commit mới sẽ tiếp tục qua git-gate).
+
+FACTS MỚI (opencode đã verify, control plane):
+- Không có remote nào; gh CLI có sẵn, đã đăng nhập tài khoản redsonvietnam (scopes: gist, read:org, repo; protocol https).
+- KHÔNG có .gitignore; 118 file tracked; working tree sạch; history T100-T130 commit qua git-gate (allowlist CONTEXT/DECISIONS/LOG.md + wf/), nhánh wf/* rồi ff-merge main.
+- Repo chứa: 3 file md system-of-record + wf/ (pipeline.mjs, verify-standalone.mjs, schema, state.json, envelope/raw/consensus/bundle evidence, git-gate.ps1), không có source code ứng dụng khác.
+
+SPEC CẦN BẠN TRẢ LỜI (discovery phải đủ các mục):
+1) Audit "clean": có file junk/noise nào bị track không (vd file tạm, .playwright-mcp, log)? lịch sử commit có cần dọn/ghép không (đánh giá trung thực — git-gate đã commit nhiều lần nhỏ, mỗi lần 1 logic)? có rủi ro secret trong history không? threshold chấp nhận: history KHÔNG dọn lại (đã gated), trừ khi phát hiện secret.
+2) .gitignore cần gì cho repo này (temp/scratch của opencode, .playwright-mcp, *.log...)? commit bằng nào?
+3) Tên repo đề xuất trên redsonvietnam + visibility (private/public) + lý do; tên có nên khớp ngữ cảnh workflow này không hay đặt tên khác?
+4) Thứ tự lệnh push chính xác (gh repo create vs git remote add + git push -u), với account đang đăng nhập.
+5) Quy ước sau khi clone máy khác: state.json/wf/ đã tracked (tiến trình tiếp tục được), file nào phải KHÔNG bao giờ commit, nhánh wf/* + git-gate chạy ra sao trên máy mới, cách xử lý working tree "chưa commit" user nhắc đến.
+6) Rủi ro + rollback (repo private chưa ai xem, force gì không — KHÔNG force push).
+
+ACCEPTANCE (executor sẽ tự chấm trước khi nộp):
+- Plan trả lời đủ 6 mục trên, lệnh copy-paste được trên PowerShell 5.1.
+- Có checklist "trước khi push" (dry-run: git status sạch, ls-files không có file lạ, git log --oneline không có secret pattern).
+- KHÔNG thực sự push trong discovery — push là human gate cuối.
+- Plan ghi vào wf/t135-push-plan.md (executor viết qua CodeLocal, nếu CodeLocal fail 2 lần → fallback local).
+
+Lưu ý: spec của bạn sẽ được prereg freeze (hash do opencode tính) TRƯỚC khi executor chạy — nên spec phải ổn định, không viết mập mờ để sửa sau.
+ASK: Ra spec discovery theo 6 mục + acceptance checklist (executor tự chấm được), nêu rõ output mong đợi từng mục. OUTPUT 4 field, DELTA ≤150 từ, nội dung spec ghi trong DELTA/ACTION dạng danh sách ngắn gọn (opencode sẽ ghi thành wf/t135-spec.md để freeze).
+CONSTRAINTS:
+- tiếng Việt có dấu
+- không push trong bước này — push là human gate
+- không sửa file ngoài wf/
+OUTPUT:
+  VERDICT: PASS|FAIL|UNCERTAIN
+  DELTA: <new information only>
+  ACTION: <next concrete action>
+  EVIDENCE: <path/hash/test>
