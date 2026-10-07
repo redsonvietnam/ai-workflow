@@ -107,3 +107,15 @@ Mock fixtures test parser/retry/chunking/git gate với 0 quota AI thật. Chạ
 - **Co dieu kien:** T128 ground-truth isolation (chi mo khi co benchmark ngoai acceptance); T129 parallel swarm + lease/fencing (chi mo khi LOG chung minh can concurrent worker). Dieu kien bo da ghi ro trong wf/t124-consensus.md.
 - **Khong lay:** browser-use, multi Chrome/CDP, CloakBrowser, Ollama, board.json, role-prompt pipeline thay envelope.
 - **Sau consensus:** DUNG chay 1 task that qua ca 3 truoc khi mo T128/T129.
+
+## D13. Council T130: đánh giá 3 repo upstream (workflow-lab, ai-coding-core, pcm) (2026-10-07)
+- **Nguồn đọc:** github.com/redsonvietnam/{workflow-lab, ai-coding-core, pcm} — đọc qua raw.githubusercontent + GitHub API (GitHub MCP không có trong session, KHÔNG clone).
+  - workflow-lab: AI_COLLABORATION_PROTOCOL_V1 (blind-first, DELTA-only, disagreement→experiment max 2 vòng → BLOCKED, 3 human gate, stop rules) — trùng lặp với prereg T125/verifier T126/bundle T127 đã làm.
+  - ai-coding-core: event-sourced task engine + orchestrator-adapter-contract LOCKED (expected_state = head_sha + worktree_fingerprint + changed_paths, revalidate nguyên tử trước APPLY, stale → reject); probe ACP: opencode permission deny/ask KHÔNG enforce.
+  - pcm: PCM/PWF canonical (WORKSTREAM/TASK/HANDOFF/GATE, 42 conformance test, COMPLETED ≠ approval); "READY FOR EXTERNAL VALIDATION" chưa chạy project thật ngoài chính nó; skill pcm-pwf đã cài sẵn.
+- **Quy trình:** opencode tóm tắt → ChatGPT-architect PASS (SEQ1) → Claude REVISE (SEQ2, lượt Claude duy nhất T130) → Grok PASS + 2 bổ sung (SEQ3) → architect chốt PASS (SEQ4). Evidence: wf/t130-{raw,claude-raw,grok-raw,round3-raw}.md + wf/t130-consensus.md.
+- **Task bắt buộc T131→T134 (thứ tự):** T131 stale-check trước APPLY — phải tái hiện được lỗi stale-hash + revalidate nguyên tử với apply (file-lock/atomic rename), acceptance: sửa file giữa check và apply → reject; T132 blind-first exchange CHỈ cặp ChatGPT+Grok (Claude không nằm trong cặp, tránh phá T122), acceptance: 2 reply độc lập trước khi trao đổi; T133 phân loại disagreement (factual/spec/interpretation/preference) + max 2 vòng → BLOCKED/DEAD_LETTER; T134 trích chọn lọc ràng buộc PCM (chỉ cái cần cho T131/T133) + bắt buộc neo hash nguồn.
+- **D13 (1 quyết định):** không coi quyền deny/ask của opencode qua ACP là firewall; enforcement nằm ở git branch wf/* + pre-commit hook, không dựa opencode permission.
+- **REJECT chốt:** PCM ceremony đầy đủ, worker-scope worktree, MutateProposal full schema, audit 42 test trọn, blind-first có Claude trong cặp.
+- **Giữ nguyên:** T128/T129 hoãn theo điều kiện D12; lease reference từ ai-coding-core gộp vào điều kiện mở T129 (không task mới).
+- **Roadmap:** T125→T127 (xong) → 1 task thật qua cả 3 cơ chế → audit → T131→T134 → mới đánh giá mở T128/T129.

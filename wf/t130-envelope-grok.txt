@@ -1,0 +1,24 @@
+[WF:v1]
+TASK: T130
+SEQ: 3
+ROLE: GROK
+HASH: c909fbd4ea8deaff
+OBJECTIVE: Grok chốt góc nhìn thứ 3 trước khi architect chốt consensus T130
+CONTEXT_REF: wf/t130-raw.md + wf/t130-claude-raw.md + DECISIONS.md D11-D12
+INPUT: T130-ROUND2 — Tổng hợp 2 ý kiến để chốt consensus đánh giá 3 repo upstream (workflow-lab, ai-coding-core, pcm):
+
+ARCHITECT (PASS): TAKE đủ 4 task T131→T134 giữ thứ tự — T131 stale-check trước APPLY (ưu tiên #1, bổ trợ T125/T127), T132 blind-first exchange, T133 phân loại disagreement + BLOCKED, T134 audit 42 conformance PCM; không mâu thuẫn D11/D12; T131-T134 là lớp bổ sung; lease reference giữ điều kiện mở T129; T128/T129 hoãn; roadmap T125→T127→1 task thật→T131→T134.
+
+CLAUDE (REVISE): T131 TAKE có điều kiện — revalidate phải NGUYÊN TỬ với apply (check xong mới apply vẫn có khoảng hở) và phải TÁI HIỆN lỗi stale-hash trước khi nhận "đã chữa"; T132 REVISE — blind-first mâu thuẫn T122 (2 AI chấm độc lập = thêm lượt Claude), chỉ chạy được với cặp ChatGPT+Grok, Claude không nằm trong cặp; T133 TAKE (trùng max_attempts/DEAD_LETTER, gần không tốn thêm); T134 REJECT dạng audit đầy đủ — 42 test PCM chưa kiểm chứng ngoài chính nó, chỉ trích ràng buộc mà T131/T133 cần. Hổng chung: probe ACP chứng minh opencode permission deny/ask KHÔNG enforce → mọi gate "opencode giữ quyền" phải chuyển xuống git/OS (branch wf/* + pre-commit hook).
+
+ĐỀ XUẤT OPENCODE GỘP: T131 (có test tái hiện stale-hash, revalidate nguyên tử) → T132 (chỉ ChatGPT+Grok) → T133 → T134 thu hẹp (audit chọn lọc ràng buộc, không 42 test trọn); ghi thêm vào DECISIONS cảnh báo permission-not-enforced.
+ASK: Đồng ý/góp ý cho phương án gộp: 1) T131-T134 theo sửa đổi của Claude có ổn không, 2) cảnh báo permission-not-enforced cần ghi DECISIONS dạng gì, 3) còn rủi ro nào 2 ý kiến trên chưa thấy. VERDICT PASS/REVISE/FAIL. OUTPUT 4 field, DELTA ≤100 từ.
+CONSTRAINTS:
+- tiếng Việt có dấu
+- không mở T128/T129
+- không đổi repo
+OUTPUT:
+  VERDICT: PASS|FAIL|UNCERTAIN
+  DELTA: <new information only>
+  ACTION: <next concrete action>
+  EVIDENCE: <path/hash/test>

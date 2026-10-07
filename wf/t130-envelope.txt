@@ -1,0 +1,29 @@
+[WF:v1]
+TASK: T130
+SEQ: 1
+ROLE: CHATGPT
+HASH: 53ad9bafa62f171c
+OBJECTIVE: Council T130 — đánh giá 3 repo upstream (workflow-lab, ai-coding-core, pcm) lấy gì/bỏ gì cho ai-workflow
+CONTEXT_REF: DECISIONS.md D11-D12 + wf/t124-consensus.md + CONTEXT.md
+INPUT: Đọc xong 3 repo của user qua raw.githubusercontent + GitHub API (GitHub MCP không có trong session này; KHÔNG clone). Đánh giá lấy gì/ bỏ gì cho D:\ai-workflow.
+
+1) workflow-lab (1 commit, 2026-10-03): AI_COLLABORATION_PROTOCOL_V1 (12 mục) + DECISIONS/decisions.yaml + REVIEWS/{chatgpt,claude}/{pass1,pass2}.md. Lõi: phân vai Human/Architect/Critic/Executor/Verifier; state FRAME→PREREG→EXECUTE→VERIFY→REVIEW→DECIDE→{CLOSE|AMEND}; BLIND-FIRST (2 AI chấm độc lập TRƯỚC khi trao đổi, deadline barrier); DELTA-only message (không relay transcript); disagreement→experiment (phân loại factual/spec/interpretation/preference, max 2 vòng, quá → BLOCKED); stop rules; 3 human gate; "LLM không viết report — script sinh report". Mục WHY_CURRENT_WORKFLOW_FAILS: correlated reasoning, self-grading, state decay, post-hoc contamination, late human validation, text substitution.
+Đánh giá: đây là "bản nghiên cứu" của chính workflow mình — trùng lặp với prereg T125, standalone verifier T126, bundle T127. LẤY: (a) blind-first exchange cho council (hiện shuttle tuần tự → người sau thấy người trước); (b) phân loại dispute + trạng thái BLOCKED (escalation T122 chỉ đếm số); (c) tách pass1/pass2 trong REVIEWS thay vì tộp tNNN-raw.md. BỎ: implementing lại phần đã có.
+
+2) ai-coding-core (1 commit, 2026-09-22): TypeScript event-sourced task engine (TASK→EVENT→transition, lease, proposal/gate, sqlite, CLI, tests) + docs/orchestrator-adapter-contract.md LOCKED v1.1 (tiếng Việt). Contract ghi: probe ACP chứng minh opencode permission deny/ask KHÔNG enforce (auto-approve) → adapter ≠ firewall; 2 scope (canonical vs worker = git worktree --detach); 5 invariants; MutateProposal = expected_state {head_sha + worktree_fingerprint SHA-256 manifest + changed_paths} + operation_hash; APPLY phải revalidate snapshot mới, stale → reject, không auto-rebase.
+Đánh giá: LẤY: (a) stale-check trước apply — recompute sha256 các file đụng tới, khác → STALE reject (chữa đúng bệnh CodeLocal fail "stale-hash/patch context" mình gặp nhiều lần); (b) worktree_fingerprint nâng provenance bundle T127 (hiện chỉ gitCommit); (c) src/domain/lease.ts + lease-proposal.test.ts = tham chiếu khi mở lại C1 lease/fencing (T129 hoãn có điều kiện); (d) cảnh báo adapter ≠ firewall để ghi vào DECISIONS nếu sau này dùng ACP. BỎ bây giờ: Core/sqlite/2-repo, worker-scope worktree isolation, MutateProposal schema đầy đủ (quá nặng cho pilot).
+
+3) pcm (28 commits, 14 nhánh, 2026-09): PCM/PWF canonical qua PCM-GATE-01 — primitives WORKSTREAM/TASK/HANDOFF/GATE, roles AUTHORITY/PROPOSER/OBSERVER/OPERATOR, 6 invariants, 42 conformance test (6 nhóm A-F), npx pcm init (adapter OpenCode "Tested"), cross-domain + portability evidence. Skill pcm-pwf ĐÃ cài sẵn trong opencode. CLOSEOUT-HANDOFF: STOP CONDITION — "READY FOR EXTERNAL VALIDATION", framework chưa chạy project thật ngoài chính nó.
+Đánh giá: LẤY: (a) nguyên tắc "COMPLETED ≠ approval" (mình làm thực chất rồi, chỉ thiếu vocabulary chuẩn); (b) dạng GATE record kiểu PCM-GATE-01.md cho các chuyển trạng thái lớn; (c) 42 conformance scenarios = checklist audit pipeline mình 1 lần. BỎ: toàn bộ ceremony PCM (WORKSTREAM/authority gate/change control) — overhead quá lớn cho pilot, council + DECISIONS.md đang đủ; không cần tích hợp thêm vì skill đã cài.
+
+Thứ tự ưu tiên đề xuất (opencode): 1-T131 stale-check trước apply (nhỏ, chữa bệnh đang có); 2-T132 blind-first exchange cho dispute; 3-T133 phân loại disagreement + BLOCKED vào escalation; 4-T134 audit bằng 42 conformance PCM; 5-lease reference gộp vào điều kiện mở T129 (không task mới); 6-không nhận PCM ceremony/worker-scope/MutateProposal đầy đủ.
+ASK: Chốt TAKE/REJECT theo 6 ý ở cuối INPUT: xác nhận/sửa thứ tự ưu tiên và số task, chỉ ra mâu thuẫn nào với D11/D12 (nếu có), giữ nguyên T128/T129 hoãn. OUTPUT 4 field, DELTA ≤150 từ.
+CONSTRAINTS:
+- tiếng Việt có dấu
+- không mở T128/T129 ngoài điều kiện đã chốt
+- không đổi gì trong repo lúc này
+OUTPUT:
+  VERDICT: PASS|FAIL|UNCERTAIN
+  DELTA: <new information only>
+  ACTION: <next concrete action>
+  EVIDENCE: <path/hash/test>

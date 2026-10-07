@@ -1,0 +1,28 @@
+[WF:v1]
+TASK: T130
+SEQ: 4
+ROLE: CHATGPT
+HASH: 61da3ffcfe7c247c
+OBJECTIVE: Chốt consensus cuối T130 — 3 repo upstream, task T131-T134 + D13
+CONTEXT_REF: wf/t130-raw.md + wf/t130-claude-raw.md + wf/t130-grok-raw.md + DECISIONS.md D11-D12
+INPUT: T130-ROUND3 — Đã đủ 3 ý kiến (bạn PASS, Claude REVISE, Grok PASS). Bạn CHỐT CONSensus cuối cho đánh giá 3 repo upstream:
+
+1) OPENCODE GỘP (đã hấp thụ sửa của Claude + bổ sung của Grok): T131 stale-check TRƯỚC APPLY — điều kiện: (i) tái hiện được lỗi stale-hash của CodeLocal trong test, (ii) revalidate NGUYÊN TỬ với apply (file-lock/atomic rename — Grok bổ sung race window), acceptance: sửa file giữa check và apply → apply bị từ chối. T132 blind-first exchange — CHỈ cặp ChatGPT+Grok (Claude không nằm trong cặp để khỏi phá T122), acceptance: 2 reply độc lập thu trước khi trao đổi. T133 phân loại disagreement (factual/spec/interpretation/preference) + max 2 vòng → BLOCKED, acceptance: dispute quá 2 vòng ra DEAD_LETTER/BLOCKED. T134 thu hẹp: trích chọn lọc ràng buộc PCM cần cho T131/T133 + neo hash nguồn (Grok: không audit 42 test trọn). Thứ tự T131→T132→T133→T134, sau roadmap T125→T127→1 task thật.
+
+2) DECISIONS MỚI (ngoài task): cảnh báo "opencode permission deny/ask KHÔNG enforce qua ACP (probe) → enforce ở git branch wf/* + pre-commit hook, không dựa opencode permission" — dạng note trong D13.
+
+3) REJECT CHỐT: PCM ceremony đầy đủ, worker-scope worktree, MutateProposal full schema, audit 42 test trọn, blind-first có Claude trong cặp.
+
+4) Giữ nguyên: T128/T129 hoãn theo điều kiện D12; lease reference từ ai-coding-core gộp vào điều kiện mở T129.
+
+RỦI RO CÒN LẠI GROK NÊU: race revalidate/apply (đã đưa vào điều kiện T131), T134 sót ràng buộc nếu không neo hash (đã đưa vào điều kiện T134).
+ASK: CHỐT consensus: danh sách task bắt buộc + điều kiện từng task (ngắn), DECISIONS D13 gồm mấy điểm, nếu đồng ý toàn bộ thì VERDICT PASS, còn điểm nào chưa chốt nêu rõ. OUTPUT 4 field, DELTA ≤200 từ.
+CONSTRAINTS:
+- tiếng Việt có dấu
+- không mở T128/T129
+- chỉ chốt, chưa sửa repo
+OUTPUT:
+  VERDICT: PASS|FAIL|UNCERTAIN
+  DELTA: <new information only>
+  ACTION: <next concrete action>
+  EVIDENCE: <path/hash/test>

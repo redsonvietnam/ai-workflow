@@ -1,0 +1,27 @@
+[WF:v1]
+TASK: T130
+SEQ: 2
+ROLE: CLAUDE
+HASH: 1225ca2e953e31cb
+OBJECTIVE: Phản biện T130 — đánh giá 3 repo upstream, chốt TAKE/REJECT T131-T134
+CONTEXT_REF: wf/t130-raw.md + DECISIONS.md D11-D12 + wf/t124-consensus.md
+INPUT: PHẢN BIỆN T130 — Architect (tab0, Think ON) đã chấm PASS cho đánh giá 3 repo upstream. Bạn là CRITIC: đọc lại TREO CÓ GÌ SAI/THIẾU, không lặp lại đồng tình.
+
+TÓM TẮT 3 REPO (opencode đọc qua raw.githubusercontent + GitHub API, không clone):
+1) workflow-lab — AI_COLLABORATION_PROTOCOL_V1: blind-first (2 AI chấm độc lập trước khi trao đổi), DELTA-only, disagreement→experiment (factual/spec/interpretation/preference, max 2 vòng → BLOCKED), 3 human gate, stop rules. Trùng lặp với prereg T125/verifier T126/bundle T127 đã làm.
+2) ai-coding-core — event-sourced task engine (lease, proposal/gate) + orchestrator-adapter-contract LOCKED: expected_state {head_sha + worktree_fingerprint + changed_paths} revalidate trước APPLY, stale → reject; probe ACP: opencode permission deny/ask KHÔNG enforce.
+3) pcm — PCM/PWF canonical: WORKSTREAM/TASK/HANDOFF/GATE, 42 conformance test, "COMPLETED ≠ approval"; framework tự nhận "READY FOR EXTERNAL VALIDATION" (chưa chạy project thật ngoài nó); skill pcm-pwf đã cài sẵn.
+
+Ý CỦA OPENCODE (6 điểm): T131 stale-check trước apply (chữa bệnh CodeLocal stale-hash); T132 blind-first exchange; T133 phân loại disagreement + BLOCKED vào escalation; T134 audit 42 conformance PCM; lease reference gộp điều kiện T129; BỎ PCM ceremony/worker-scope/MutateProposal đầy đủ.
+
+REPLY ARCHITECT (VERDICT: PASS): TAKE đủ 4 task T131→T134 giữ đúng thứ tự; T131 ưu tiên #1 bổ trợ T125/T127; không mâu thuẫn vật chất D11/D12, T131–T134 là lớp bổ sung không thay thế T125–T127; lease reference giữ trong điều kiện mở T129; T128/T129 hoãn. ACTION: roadmap T125→T127→1 task thật→T131→T132→T133→T134, chưa sửa repo; sau T134 mới đánh giá mở T128/T129.
+ASK: Đối chiếu 6 ý opencode + reply architect: chỉ ra điểm sai/thiếu/nguy cơ (nếu có) — đặc biệt: T131 có thật sự chữa được stale-hash fail của CodeLocal không, T132 blind-first có mâu thuẫn với escalation budget T122 không, T134 audit PCM có lãng phí không. VERDICT PASS/REVISE/FAIL, kèm sửa đổi cụ thể. OUTPUT 4 field, DELTA ≤120 từ.
+CONSTRAINTS:
+- tiếng Việt có dấu
+- không mở T128/T129
+- không đổi repo
+OUTPUT:
+  VERDICT: PASS|FAIL|UNCERTAIN
+  DELTA: <new information only>
+  ACTION: <next concrete action>
+  EVIDENCE: <path/hash/test>
