@@ -98,3 +98,12 @@ Mock fixtures test parser/retry/chunking/git gate với 0 quota AI thật. Chạ
 - **Thu tu bat buoc: T116 -> T117 -> T118 -> T119** (Claude: moi muc sau dua tren du lieu muc truoc).
 - **Phase 2 (chua thuc thi):** typed schema/enrollment policy day du, lease/fencing neu >1 orchestrator, evidence hash-chain/enrichment.
 - **Dieu kien Claude:** chua co dry-run chay that = chua phai bang chung; moi muc xong phai co acceptance test truoc khi sang muc tiep.
+
+
+## D12. Council T124: tich hop tu repo ai-orchestrator - consensus T125-T127 (2026-10-07)
+- **Nguon:** github.com/redsonvietnam/ai-orchestrator (ban workflow khac cua user tren may khac) - doc bo 2 phan: root (browser-use + Chrome CDP orchestrator: pipeline Claude->ChatGPT->Gemini, swarm, board.json) va experiments/META-WF-V1 (prereg freeze hash, ground-truth isolation, verifier doc lap 2 ngon ngu + fixtures, SHA256SUMS + provenance, HUMAN GATE approval file).
+- **Quy trinh:** opencode doc/tom tat -> ChatGPT-architect (Think) de xuat 5 task -> Claude phan biem (REVISE: ha T128/T129, doi thu tu) -> Grok phan biem (PASS co dieu kien + 2 bo sung fail-closed, lease-id) -> ChatGPT chot consensus CUOI PASS. Evidence: wf/t124-raw.md, wf/t124-claude-raw.md, wf/t124-grok-raw.md, wf/t124-round2-raw.md, wf/t124-consensus.md.
+- **Bat buoc (thu tu T125 -> T126 -> T127):** T125 prereg freeze (hash do opencode tinh, sua 1 byte sau freeze = BLOCKED); T126 independent verifier UU TIEN CAO NHAT (process rieng, output read-only, FAIL-CLOSED, gate 2 fixture dung/sai); T127 evidence bundle (SHA256SUMS + provenance + gộp C4 hash-chain, neo git tag, anchor ngoai bundle).
+- **Co dieu kien:** T128 ground-truth isolation (chi mo khi co benchmark ngoai acceptance); T129 parallel swarm + lease/fencing (chi mo khi LOG chung minh can concurrent worker). Dieu kien bo da ghi ro trong wf/t124-consensus.md.
+- **Khong lay:** browser-use, multi Chrome/CDP, CloakBrowser, Ollama, board.json, role-prompt pipeline thay envelope.
+- **Sau consensus:** DUNG chay 1 task that qua ca 3 truoc khi mo T128/T129.

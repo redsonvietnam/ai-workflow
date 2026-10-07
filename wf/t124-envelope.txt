@@ -1,0 +1,14 @@
+﻿[WF:v1]
+TASK: T124
+SEQ: 2
+ROLE: CHATGPT
+HASH: 8805a5f79d6715da
+OBJECTIVE: ─É├ính gi├í repo ai-orchestrator (phi├¬n bß║ún kh├íc cß╗ºa m├¼nh) v├á ─æß╗ü xuß║Ñt t├¡ch hß╗úp
+CONTEXT_REF: https://github.com/redsonvietnam/ai-orchestrator (─æ├ú clone + ─æß╗ìc)
+INPUT: T├ôM Tß║«T REPO (2 phß║ºn): (A) Root ΓÇö browser-use + Chrome CDP: 3 Chrome instance ri├¬ng (port 9222-9224, profile ri├¬ng, ─æ─âng nhß║¡p 1 lß║ºn), worker.py = 1 process/1 tab, LLM 'c├íi tay' Groq/Gemini free ─æiß╗üu khiß╗ân tab; 2 mode: pipeline (Claude architect ΓåÆ ChatGPT review ΓåÆ Gemini finalize, c├│ ROLE_PROMPTS) v├á swarm (3 AI song song ΓåÆ Gemini tß╗òng hß╗úp); shared state runs/board.json; Windows mutex single-instance; CloakBrowser chß╗æng anti-bot; fallback Ollama local. (B) experiments/META-WF-V1 ΓÇö experiment framework HANSTROKE: prereg/ (TASKS, GROUND_TRUTH 5 fault kh├┤ng ─æ╞░a reviewer, METRICS, SCORING frozen + PREREG.sha256 freeze tr╞░ß╗¢c khi chß║íy); tasks/F1-F5 input/raw/source + SHA256SUMS + provenance.json; harness/ (build_tasks, verify_prereg, dispatch, w3 dry-run ΓåÆ w4 review relay ΓåÆ w5 real relay ΓåÆ w6 decision loop ΓåÆ w7 finalize, score.py frozen pre-run); verifier/ (verify.mjs Node ─æß╗Öc lß║¡p + verdict_rules.json data-driven + selftest 3 fixtures perfect/accept_all/schema_missing); transport/ (T0_SPEC + JS sinh selector fill/presend/send cho ChatGPT/Claude); HUMAN GATE bß║▒ng file approval (GATE1_APPROVAL.yaml), hard scope: kh├┤ng sß╗¡a metric sau khi chß║íy. (C) SO Vß╗ÜI WORKFLOW M├îNH (D:\ai-workflow): m├¼nh c├│ envelope hash/SEQ + hash-chain T123 + idempotent replay + state machine/attempts/dead-letter + schema gate T121 + escalation budget T122 + git-gate + byte accounting + council 4 model; Hß╗î KH├öNG C├ô prereg freeze hash, verifier ─æß╗Öc lß║¡p 2 ng├┤n ngß╗», ground-truth isolation, SHA256SUMS+provenance per task, swarm song song, multi Chrome profile/CDP ri├¬ng, transport test spec.
+ASK: Thß║úo luß║¡n ch├¡nh: 1) 3-5 ─æiß╗üu ─æ├íng hß╗ìc/t├¡ch hß╗úp v├áo workflow m├¼nh (╞░u ti├¬n cao, c├│ thß╗â l├ám ngay), 2) ─æiß╗üu g├¼ kh├┤ng cß║ºn lß║Ñy (hoß║╖c tr├íi vai tr├▓ hiß╗çn tß║íi), 3) t├ích th├ánh task T125+, mß╗ùi task 1 t├¡ch hß╗úp, ─æß╗ü xuß║Ñt thß╗⌐ tß╗▒ + acceptance test. OUTPUT 4 field.
+OUTPUT:
+  VERDICT: PASS|FAIL|UNCERTAIN
+  DELTA: <new information only>
+  ACTION: <next concrete action>
+  EVIDENCE: <path/hash/test>
