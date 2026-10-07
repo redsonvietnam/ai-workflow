@@ -10,7 +10,7 @@ if ($branch -notmatch '^wf/') { throw "GATE FAIL: branch '$branch' phải bắt 
 $files = @(git diff --cached --name-only)
 if ($files.Count -eq 0) { throw 'GATE FAIL: nothing staged' }
 
-$allowed = '^(CONTEXT|DECISIONS|LOG)\.md$|^wf/'
+$allowed = '^(CONTEXT|DECISIONS|LOG)\.md$|^\.git(ignore|attributes)$|^wf/'
 foreach ($f in $files) {
   if ($f -notmatch $allowed) { throw "GATE FAIL: file không nằm trong allowlist: $f" }
 }

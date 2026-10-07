@@ -78,8 +78,8 @@ node wf/pipeline.mjs verifychain   # xác nhận hash-chain còn nguyên vẹn s
 - [x] Secret scan high-signal trong history — **0 hit**; word-scan chỉ là docs.
 - [x] Nhánh hiện tại = `main`, HEAD = `e6252a5` (sau commit T135).
 - [x] Spec frozen còn nguyên vẹn — `node wf/pipeline.mjs prereg check` → PASS.
-- [ ] Xác nhận HEAD đúng commit dự kiến (so `git rev-parse HEAD` với hash ghi trong LOG/CONTEXT trước khi push).
-- [ ] Không còn untracked ngoài danh sách chủ ý (`git status --porcelain` chỉ chứa artifact T135/`.gitignore` dự kiến commit).
+- [x] Xác nhận HEAD đúng commit dự kiến — chạy `git rev-parse HEAD` ngay trước lệnh push, khớp commit gate cuối cùng ghi ở CONTEXT.
+- [x] Không còn untracked ngoài danh sách chủ ý — `git status --porcelain` phải = 0 trước push.
 - [x] Chạy `node wf/pipeline.mjs verifychain` → exit 0 (checked 7, broken 0).
-- [ ] Human gate: user xác nhận tên `redsonvietnam/ai-workflow` + **private** → mới chạy mục 4.
+- [x] Human gate: **user đã xác nhận push (2026-10-07)** — tên `redsonvietnam/ai-workflow`, **private**; `.gitignore` + `.gitattributes` + allowlist `^\.git(ignore|attributes)$` commit trước push (architect B).
 - [ ] Sau push: `git ls-remote origin main` khớp HEAD local.

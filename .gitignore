@@ -1,0 +1,5 @@
+# opencode/Playwright local artifacts
+.playwright-mcp/
+*.log
+.scratch/
+node_modules/
