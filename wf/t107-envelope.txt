@@ -1,0 +1,14 @@
+﻿[WF:v1]
+TASK: T107
+SEQ: 1
+ROLE: CHATGPT
+HASH: 38f1546bb8b6ef25
+OBJECTIVE: Design spec: wf/report.mjs ΓÇö tong hop byte accounting tu LOG.md
+CONTEXT_REF: DECISIONS.md#D8
+INPUT: T105 da them logEvent field: requestChars/replyChars/requestBytes/replyBytes (tu dong, backward-compatible). LOG.md hien co event JSON moi dong. D8 buoc 8 yeu cau ghi tong token relay.
+ASK: SPEC ngan cho executor: script wf/report.mjs (node ESM, 0 dependency) doc LOG.md, tong hop: so event theo task/relay/verdict, tong requestChars/replyChars/requestBytes/replyBytes, TB per relay,claude_calls tong; output markdown bang + JSON. K├¿m fixture/cach test. OUTPUT 4 field + SPEC, toi da 250 tu.
+OUTPUT:
+  VERDICT: PASS|FAIL|UNCERTAIN
+  DELTA: <new information only>
+  ACTION: <next concrete action>
+  EVIDENCE: <path/hash/test>

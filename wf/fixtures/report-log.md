@@ -1,0 +1,3 @@
+- 2026-10-07T10:00:00Z | {"task":"T101","relay":"chatgpt","verdict":"PASS","requestChars":10,"replyChars":20,"requestBytes":10,"replyBytes":20}
+- 2026-10-07T10:01:00Z | {"task":"T101","relay":"claude","verdict":"PASS","requestChars":12,"replyChars":22,"requestBytes":12,"replyBytes":22}
+- 2026-10-07T10:02:00Z | {"task":"T102","relay":"chatgpt","verdict":"FAIL"}

@@ -1,0 +1,14 @@
+﻿[WF:v1]
+TASK: T108
+SEQ: 1
+ROLE: CHATGPT
+HASH: fa7496d5cb61db9a
+OBJECTIVE: Implement wf/report.mjs theo spec T107
+CONTEXT_REF: DECISIONS.md#D8
+INPUT: SPEC: Node ESM zero-dep, doc LOG.md parse JSON moi dong sau '|', aggregate count theo task/relay/verdict + requestChars/replyChars/requestBytes/replyBytes + TB per relay + claude_calls; thieu field -> 0; stdout Markdown table + JSON; fixture wf/fixtures/report-log.md (>=3 events, >=2 relay, 1 claude, 1 event thieu accounting); test deterministic, khong network.
+ASK: Dung CodeLocal edit tao wf/report.mjs + fixture + chay node wf\report.mjs verify ket qua (bang tong khop tay). OUTPUT 4 field, EVIDENCE = ket qua run + tong so. Toi da 50 tu.
+OUTPUT:
+  VERDICT: PASS|FAIL|UNCERTAIN
+  DELTA: <new information only>
+  ACTION: <next concrete action>
+  EVIDENCE: <path/hash/test>
