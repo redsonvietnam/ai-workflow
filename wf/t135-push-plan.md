@@ -57,6 +57,7 @@ node wf/pipeline.mjs verifychain   # xác nhận hash-chain còn nguyên vẹn s
 - Trên máy mới: tạo nhánh `wf/<task>` → làm việc → `powershell -File wf/git-gate.ps1` (allowlist tự chặn file ngoài danh sách, scan secret, ff-merge `main`, xóa nhánh) — như nhánh `wf/*` trên máy này.
 - Working tree "chưa commit" sau khi user chuyển máy (3 file md + wf/ chưa commit mentioned): **inspect trước** — `git status` → `git diff` từng file → quyết định commit (qua gate) hoặc stash; **không bao giờ `git clean -fd` / `git checkout .` mù quáng**.
 - Yêu cầu máy mới: `git` + `node` ≥18 + (tùy) `gh` CLI đã đăng nhập để tiếp tục thao tác GitHub.
+- **EOL/line-endings (phát hiện T135 — quan trọng với hash):** máy này từng có `core.autocrlf=true` → sau checkout git đổi LF→CRLF làm lệch sha256 (prereg exit 5, bundle exit 7). Đã sửa `git config core.autocrlf false` (repo-local). Trên máy mới cần làm tương tự **hoặc** thêm file `.gitattributes` với `* text=auto eol=lf` (commit cùng lúc `.gitignore`, cần bổ sung allowlist `^\.git(attributes|ignore)$` vào git-gate) — nếu không, `prereg check`/`bundle-check`/hash-chain sẽ báo sai lệch trên máy khác.
 
 ## 6) Rủi ro + rollback
 
@@ -73,12 +74,12 @@ node wf/pipeline.mjs verifychain   # xác nhận hash-chain còn nguyên vẹn s
 ## Checklist "trước khi push" (dry-run) — tự chấm trước human gate
 
 - [x] `git status` — chỉ còn artifact T135 dự kiến commit; sau commit phải **sạch (0 entry)**.
-- [x] `git ls-files` — 118 file, không file lạ/junk.
+- [x] `git ls-files` — 128 file, không file lạ/junk.
 - [x] Secret scan high-signal trong history — **0 hit**; word-scan chỉ là docs.
-- [x] Nhánh hiện tại = `main`, HEAD = `aa36b45` (hoặc commit mới hơn sau khi commit plan).
+- [x] Nhánh hiện tại = `main`, HEAD = `e6252a5` (sau commit T135).
 - [x] Spec frozen còn nguyên vẹn — `node wf/pipeline.mjs prereg check` → PASS.
 - [ ] Xác nhận HEAD đúng commit dự kiến (so `git rev-parse HEAD` với hash ghi trong LOG/CONTEXT trước khi push).
 - [ ] Không còn untracked ngoài danh sách chủ ý (`git status --porcelain` chỉ chứa artifact T135/`.gitignore` dự kiến commit).
-- [x] Chạy `node wf/pipeline.mjs verifychain` → exit 0 (đã chạy tại audit: checked 6, broken 0).
+- [x] Chạy `node wf/pipeline.mjs verifychain` → exit 0 (checked 7, broken 0).
 - [ ] Human gate: user xác nhận tên `redsonvietnam/ai-workflow` + **private** → mới chạy mục 4.
 - [ ] Sau push: `git ls-remote origin main` khớp HEAD local.

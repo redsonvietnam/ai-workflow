@@ -27,6 +27,7 @@ Ngày: 2026-10-07. Task: discovery push `D:\ai-workflow` lên GitHub sạch, chu
 - **`.gitignore` không nằm trong allowlist git-gate** (`^(CONTEXT|DECISIONS|LOG)\.md$|^wf/`): architect đồng ý bổ sung `^\.gitignore$` và commit riêng trước khi push — thực hiện ở bước mở repo (human gate).
 - **Typo `--remote=`** trong câu hỏi envelope SEQ3 (đã seal hash) — plan file đúng sẵn `--remote=origin`; không sửa plan mệnh lệnh, chỉ ghi nhận.
 - **Checklist pre-push bổ sung 2 ô** theo review: HEAD đúng commit dự kiến; không untracked ngoài danh sách chủ ý.
+- **EOL/autocrlf làm lệch hash sau commit-merge (phát hiện nội bộ, exit 5 + exit 7):** `core.autocrlf=true` → git checkout đổi LF→CRLF → `prereg check` và `bundle-check` FAIL ngay sau khi ff-merge main (mọi file T135). Đã xử lý: `git config core.autocrlf false` (repo-local) + restore từ index → prereg PASS / bundle-check PASS / verifychain PASS, tree sạch. **Bài học cho máy khác:** cần `autocrlf=false` hoặc `.gitattributes eol=lf` (kèm bổ sung allowlist) — đã ghi vào plan mục 5. Đây là lý do bundle-check nên chạy ở cả 2 thời điểm: trước commit và sau merge.
 
 ## Trạng thái cuối
 
