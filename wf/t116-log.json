@@ -1,0 +1,1 @@
+﻿{"task":"T116","seq":2,"hash":"186c43a94adbe41a","relay":"opencode->chatgpt-executor->codelocal->localcode","verdict":"PASS","executorVerdict":"UNCERTAIN","purpose":"C4 observability hook - terminal transition + finalHash, payload stripped","claude_calls":0,"request":"T116 envelope C4 observability","reply":"PASS N1-N4 + dryrun 6/6 + report OK"}

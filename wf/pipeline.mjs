@@ -85,8 +85,27 @@ export function decideVerdict(parsed, conditions = {}) {
 export function logEvent(entry) {
   const request = entry.request ?? entry.input ?? '';
   const reply = entry.reply ?? entry.output ?? '';
+  const transition = entry.stateTransition ?? {
+    from: entry.stateFrom ?? null,
+    to: entry.stateTo ?? entry.state ?? null,
+  };
+  const terminalStates = new Set(['DONE', 'FAILED', 'BLOCKED', 'DEAD_LETTER', 'HUMAN_REQUIRED']);
+  const isTerminal = entry.terminal === true || terminalStates.has(transition.to);
+  const finalHash = entry.finalHash ?? entry.replyHash ?? null;
+  if (isTerminal && (!transition.from || !transition.to || !finalHash)) {
+    throw new Error('TERMINAL_EVIDENCE_REQUIRED');
+  }
   const enriched = {
-    ...entry,
+    task: entry.task ?? null,
+    seq: entry.seq ?? null,
+    hash: entry.hash ?? null,
+    relay: entry.relay ?? null,
+    verdict: entry.verdict ?? null,
+    stateTransition: transition,
+    terminal: isTerminal,
+    finalHash,
+    evidence: entry.evidence ?? null,
+    claude_calls: entry.claude_calls ?? 0,
     requestChars: entry.requestChars ?? [...request].length,
     replyChars: entry.replyChars ?? [...reply].length,
     requestBytes: entry.requestBytes ?? Buffer.byteLength(request, 'utf8'),

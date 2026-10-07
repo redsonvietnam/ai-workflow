@@ -27,12 +27,19 @@ function aggregate(events) {
   return { count: events.length, byTask, byRelay, byVerdict, ...accounting, claude_calls };
 }
 
+function aggregateObservability(events) {
+  const terminal = events.filter(e => e.terminal === true || e.stateTransition?.to && ['DONE','FAILED','BLOCKED','DEAD_LETTER','HUMAN_REQUIRED'].includes(e.stateTransition.to));
+  const missingEvidence = terminal.filter(e => !e.stateTransition?.from || !e.stateTransition?.to || !e.finalHash).length;
+  return { terminal_transitions: terminal.length, terminal_missing_evidence: missingEvidence };
+}
+
 function main() {
   const fixture = aggregate(parse(FIXTURE));
   const actual = aggregate(parse(LOG));
+  const observability = aggregateObservability(parse(LOG));
   console.log('| Source | Count | claude_calls | requestChars | replyChars | requestBytes | replyBytes |');
   console.log('|---|---:|---:|---:|---:|---:|---:|');
   for (const [name, x] of [['fixture', fixture], ['log', actual]]) console.log(`| ${name} | ${x.count} | ${x.claude_calls} | ${x.requestChars} | ${x.replyChars} | ${x.requestBytes} | ${x.replyBytes} |`);
-  console.log(JSON.stringify({ fixture, log: actual }, null, 2));
+  console.log(JSON.stringify({ fixture, log: actual, observability }, null, 2));
 }
 main();

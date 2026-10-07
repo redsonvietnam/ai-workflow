@@ -1,0 +1,14 @@
+﻿[WF:v1]
+TASK: T116
+SEQ: 2
+ROLE: CHATGPT
+HASH: 186c43a94adbe41a
+OBJECTIVE: C4 Observability hook - CODE phan
+CONTEXT_REF: DECISIONS.md D11 + wf/t112-consensus.md
+INPUT: Claude: ghi state transition + final hash vao LOG, KHONG ghi payload; CONTEXT chi giu trang thai hien tai. CODE: wf/report.mjs + pipeline.mjs. Moi terminal transition phai co evidence toi thieu, truy vet duoc.
+ASK: Doc wf/report.mjs + wf/pipeline.mjs hien tai, xac dinh con thieu gi de dam bao moi terminal run ghi duoc state transition + final hash (khong payload), code phan thieu qua CodeLocal edit. Neu terminal bi block thi bao ro de opencode chay test. OUTPUT 4 field. Toi da 60 tu.
+OUTPUT:
+  VERDICT: PASS|FAIL|UNCERTAIN
+  DELTA: <new information only>
+  ACTION: <next concrete action>
+  EVIDENCE: <path/hash/test>

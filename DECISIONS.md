@@ -88,3 +88,13 @@ Mock fixtures test parser/retry/chunking/git gate với 0 quota AI thật. Chạ
 - **Hien tuong:** tab1 (thread architect cu da ket noi CodeLocal plugin) - nut Think co mat nhung khong toggle duoc qua automation (click/key/React handler deu chay nhung aria-pressed luon false); tab0 (thread moi, sach CodeLocal) toggle binh thuong ngay lan click dau. Nghi ban: trang thai plugin/session tren tab do trien nut Think.
 - **Giai quyet:** architect chuyen sang thread moi https://chatgpt.com/c/6ac64508-3590-83ec-805b-bfff5af66840 (T111 bootstrap PASS, Think ON). Thread cu 6ac5cc72 = archive. Context khong mat vi he thong record luon o local (CONTEXT.md, DECISIONS.md, LOG.md, wf/*).
 - **Quy tac cho sau:** giu tab architect SACH CodeLocal; chi tab executor/riser gan plugin. Neu Think lai tat -> suspect CodeLocal truoc.
+
+## D11. Council T112-T115: consensus 4 muc cai thien + thu tu thuc thi (2026-10-07)
+- **Quy trinh:** ChatGPT-architect (Think) de xuat 6 -> Grok phan bien 6/6 DONG Y + 2 bo sung -> shuttle 2 vong chot consensus (ca hai PASS) -> Claude danh gia 7/8 PASS co dieu kien -> ChatGPT ket luan DOC/CODE plan T116-T119. File dong thuan: wf/t112-consensus.md.
+- **C1 (T119) Runtime state DON GIAN** (khong lease/fencing - 1 orchestrator tuan su): state + timeout + attempts + DEAD_LETTER. Claude diem 1/2, ha ban nay la du.
+- **C2 (T118) Acceptance-contract gate:** execution BLOCKED neu thieu command/allowlist/red-test/spec-lock.
+- **C3 (T117) Idempotent replay:** key do opencode tinh, intent/dong nguyen tu; side effect mo ho khong dao nguoc thi dung.
+- **C4 (T116) Observability hook:** ghi state transition + final hash vao LOG, KHONG ghi payload; CONTEXT chi giu trang thai hien tai.
+- **Thu tu bat buoc: T116 -> T117 -> T118 -> T119** (Claude: moi muc sau dua tren du lieu muc truoc).
+- **Phase 2 (chua thuc thi):** typed schema/enrollment policy day du, lease/fencing neu >1 orchestrator, evidence hash-chain/enrichment.
+- **Dieu kien Claude:** chua co dry-run chay that = chua phai bang chung; moi muc xong phai co acceptance test truoc khi sang muc tiep.
