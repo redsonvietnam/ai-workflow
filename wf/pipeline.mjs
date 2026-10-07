@@ -215,6 +215,29 @@ export function logEvent(entry) {
   return { logged: true, idempotencyKey };
 }
 
+function preregManifestPath() { return join(WF, 'prereg-manifest.json'); }
+function fileSha256(path) { return sha256(readFileSync(join(ROOT, path))); }
+export function preregCheck() {
+  const manifestPath = preregManifestPath();
+  if (!existsSync(manifestPath)) return { ok: true, skipped: true, failures: [] };
+  const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
+  const failures = [];
+  for (const item of manifest.files ?? []) {
+    try {
+      const actual = fileSha256(item.path);
+      if (actual !== item.sha256) failures.push({ path: item.path, reason: 'HASH_MISMATCH', expected: item.sha256, actual });
+    } catch {
+      failures.push({ path: item.path, reason: 'MISSING' });
+    }
+  }
+  return { ok: failures.length === 0, skipped: false, failures };
+}
+function preregFreeze(paths) {
+  const files = paths.map((path) => ({ path, sha256: fileSha256(path) }));
+  const manifest = { frozenAt: new Date().toISOString(), files, note: 'Frozen by prereg freeze; changes require re-freeze.' };
+  writeFileSync(preregManifestPath(), JSON.stringify(manifest, null, 2) + '\n');
+  return manifest;
+}
 export function acceptanceGate(raw) {
   const clean = String(raw ?? '').replace(/^﻿/, '');
   const field = (name) => clean.match(new RegExp('(?:^|\\n)\\s*' + name + '\\s*:\\s*([^\\n]+)', 'i'))?.[1]?.trim() ?? null;
@@ -229,7 +252,9 @@ export function acceptanceGate(raw) {
   const allowlistOk = Boolean(allowlist && allowlist !== 'BLOCKED');
   const redTestOk = Boolean(redTest && /^(RED|FAIL|NOT_PASS|UNPASS)/i.test(redTest));
   const checks = { command: commandOk, allowlist: allowlistOk, redTest: redTestOk, specLock };
-  return { ok: Object.values(checks).every(Boolean), checks, reason: Object.values(checks).every(Boolean) ? null : 'ACCEPTANCE_CONTRACT_BLOCKED' };
+  const prereg = preregCheck();
+  if (!prereg.ok) return { ok: false, checks, reason: 'PREREG_MISMATCH', prereg };
+  return { ok: Object.values(checks).every(Boolean), checks, reason: Object.values(checks).every(Boolean) ? null : 'ACCEPTANCE_CONTRACT_BLOCKED', prereg };
 }
 
 export const STATES = ['CREATED', 'RUNNING', 'DONE', 'FAILED', 'DEAD_LETTER'];
@@ -370,7 +395,26 @@ if (cmd === 'make') {
   const raw = file === '-' ? readFileSync(0, 'utf8') : readFileSync(file, 'utf8');
   const gate = acceptanceGate(raw);
   console.log(JSON.stringify(gate, null, 2));
-  if (!gate.ok) process.exit(3);
+  if (!gate.ok) process.exit(gate.reason === 'PREREG_MISMATCH' ? 5 : 3);
+} else if (cmd === 'prereg') {
+  const sub = args[0];
+  if (sub === 'freeze') {
+    const manifest = preregFreeze(args.slice(1));
+    console.log(JSON.stringify(manifest, null, 2));
+  } else if (sub === 'check') {
+    const result = preregCheck();
+    if (result.skipped) console.log('prereg: SKIP (no manifest)');
+    else if (result.ok) console.log('prereg: PASS');
+    else {
+      console.log('| Path | Reason |');
+      console.log('|---|---|');
+      for (const f of result.failures) console.log(`| ${f.path} | ${f.reason} |`);
+      process.exit(5);
+    }
+  } else {
+    console.error('usage: prereg freeze <file...> | prereg check');
+    process.exit(2);
+  }
 } else if (cmd === 'validate') {
   const file = args[0];
   const raw = file === '-' ? readFileSync(0, 'utf8') : readFileSync(file, 'utf8');

@@ -1,0 +1,14 @@
+﻿[WF:v1]
+TASK: T125
+SEQ: 2
+ROLE: CHATGPT
+HASH: bdb81d3d803c68d2
+OBJECTIVE: Prereg freeze ΓÇö manifest hash spec/acceptance tr╞░ß╗¢c execution
+CONTEXT_REF: wf/t124-consensus.md + DECISIONS.md D12
+INPUT: Consensus T124-T125: hash bß╗Ö spec/acceptance do OPERCODE t├¡nh (kh├┤ng phß║úi model), freeze tr╞░ß╗¢c execution; sß╗¡a 1 byte sau freeze ΓåÆ gate BLOCKED. Cß║Ñu tr├║c ─æß╗ü xuß║Ñt: wf/prereg-manifest.json = {frozenAt, files: [{path, sha256}], note}. CLI: 'prereg freeze <file...>' t├¡nh sha256 v├á ghi manifest; 'prereg check' ─æß╗ìc manifest, recompute tß╗½ng file, kh├íc/thiß║┐u ΓåÆ exit 5 (reserved), in bß║úng k├¬ file lß╗ùi. Gate T118 (acceptanceGate) gß╗ìi prereg check nß║┐u manifest tß╗ôn tß║íi. KH├öNG ─æß╗òi hash ─æ├ú freeze ΓÇö muß╗æn thay phß║úi freeze lß║íi (ghi r├╡ trong note).
+ASK: Code qua CodeLocal tab executor n├áy (kh├┤ng ─æß╗ìc tr╞░ß╗¢c, implement trß╗▒c tiß║┐p): th├¬m CLI prereg freeze/check + hook v├áo acceptanceGate, exit 5. Backward-compatible (kh├┤ng manifest = bß╗Å qua). Test: freeze 2 file ΓåÆ check PASS exit 0; sß╗¡a 1 byte ΓåÆ exit 5. OUTPUT 4 field, tß╗æi ─æa 60 tß╗½.
+OUTPUT:
+  VERDICT: PASS|FAIL|UNCERTAIN
+  DELTA: <new information only>
+  ACTION: <next concrete action>
+  EVIDENCE: <path/hash/test>
