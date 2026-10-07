@@ -17,6 +17,28 @@ function loadState() {
 function saveState(s) { writeFileSync(STATE, JSON.stringify(s, null, 2)); }
 export function sha256(s) { return createHash('sha256').update(s, 'utf8').digest('hex'); }
 
+export function checkEscalation(task, today = new Date().toISOString().slice(0, 10)) {
+  const st = loadState();
+  const calls = st.claudeCalls ?? { byDate: {}, byTask: {} };
+  const byDate = calls.byDate ?? {};
+  const byTask = calls.byTask ?? {};
+  if (Number(byTask[task] ?? 0) >= 1 || Number(byDate[today] ?? 0) >= 2) {
+    return { ok: false, reason: 'HUMAN_REQUIRED' };
+  }
+  return { ok: true };
+}
+
+function consumeEscalation(task, today = new Date().toISOString().slice(0, 10)) {
+  const st = loadState();
+  const calls = st.claudeCalls ?? { byDate: {}, byTask: {} };
+  calls.byDate = calls.byDate ?? {};
+  calls.byTask = calls.byTask ?? {};
+  calls.byTask[task] = Number(calls.byTask[task] ?? 0) + 1;
+  calls.byDate[today] = Number(calls.byDate[today] ?? 0) + 1;
+  st.claudeCalls = calls;
+  saveState(st);
+}
+
 export function makeEnvelope({ task, role = 'CHATGPT', objective, contextRef = '', input = '', ask, constraints = [] }) {
   const st = loadState();
   st.seq[task] = (st.seq[task] || 0) + 1;
@@ -88,6 +110,12 @@ export function decideVerdict(parsed, conditions = {}) {
 }
 
 export function logEvent(entry) {
+  if (Number(entry.claude_calls ?? 0) > 0) {
+    const today = new Date().toISOString().slice(0, 10);
+    const budget = checkEscalation(entry.task, today);
+    if (!budget.ok) throw new Error('HUMAN_REQUIRED');
+    consumeEscalation(entry.task, today);
+  }
   const request = entry.request ?? entry.input ?? '';
   const reply = entry.reply ?? entry.output ?? '';
   const transition = entry.stateTransition ?? {
@@ -301,6 +329,12 @@ if (cmd === 'make') {
   const r = validateEnvelope(raw, schema);
   console.log(JSON.stringify({ ok: r.ok, errors: r.errors }, null, 2));
   if (!r.ok) process.exit(2);
+} else if (cmd === 'escalation') {
+  const task = args[0];
+  const today = new Date().toISOString().slice(0, 10);
+  const budget = checkEscalation(task, today);
+  console.log(JSON.stringify(budget, null, 2));
+  if (!budget.ok) process.exit(3);
 } else if (cmd === 'reap') {
   const st = loadState();
   st.tasks = st.tasks ?? {};
@@ -309,7 +343,15 @@ if (cmd === 'make') {
   console.log(JSON.stringify({ changed, tasks: st.tasks }, null, 2));
 } else if (cmd === 'log') {
   const payload = (args[0].startsWith('@') ? readFileSync(args[0].slice(1), 'utf8') : args[0]).replace(/^﻿/, '');
-  logEvent(JSON.parse(payload));
+  try {
+    logEvent(JSON.parse(payload));
+  } catch (err) {
+    if (err?.message === 'HUMAN_REQUIRED') {
+      console.log(JSON.stringify({ ok: false, reason: 'HUMAN_REQUIRED' }, null, 2));
+      process.exit(3);
+    }
+    throw err;
+  }
   console.log('logged');
 } else {
   dryRun();

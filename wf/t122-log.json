@@ -1,0 +1,1 @@
+﻿{"task":"T122","seq":1,"hash":"a6d67fdcab730a08","relay":"opencode->chatgpt-executor->codelocal","verdict":"PASS","executorVerdict":"UNCERTAIN lan 1 -> RETRY PASS","purpose":"T122 escalation budget - claude_calls <=1/task <=2/ngay, exit 3 HUMAN_REQUIRED","claude_calls":0,"request":"T122 envelope escalation budget + retry","reply":"PASS budget per-task/per-day, dryrun 6/6"}

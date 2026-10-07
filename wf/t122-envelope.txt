@@ -1,0 +1,14 @@
+﻿[WF:v1]
+TASK: T122
+SEQ: 1
+ROLE: CHATGPT
+HASH: a6d67fdcab730a08
+OBJECTIVE: Phase 2b - Escalation budget
+CONTEXT_REF: DECISIONS.md D11 + T120 spec
+INPUT: Spec T122: claude_calls <= 1/task v├á <= 2/ng├áy. V╞░ß╗út -> HUMAN_REQUIRED/BLOCKED exit 3, kh├┤ng gß╗ìi Claude th├¬m. Counter l╞░u trong state.json (claudeCalls: {date, tasks}, deterministic). Hiß╗çn logEvent ─æ├ú nhß║¡n claude_calls.
+ASK: Th├¬m kiß╗âm tra ng├ón s├ích escalation v├áo wf/pipeline.mjs: h├ám checkEscalation(task, date) hoß║╖c CLI 'escalation <task>' ─æß╗ìc counter, v╞░ß╗út ng╞░ß╗íng -> exit 3 vß╗¢i reason HUMAN_REQUIRED; gß╗ìi tß╗½ logEvent khi claude_calls>0 ─æß╗â t─âng counter. Backward-compatible. Code qua CodeLocal, terminal block th├¼ b├ío. OUTPUT 4 field, tß╗æi ─æa 60 tß╗½.
+OUTPUT:
+  VERDICT: PASS|FAIL|UNCERTAIN
+  DELTA: <new information only>
+  ACTION: <next concrete action>
+  EVIDENCE: <path/hash/test>
