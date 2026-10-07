@@ -1,0 +1,1 @@
+{"task":"T114","seq":1,"hash":"t114-claude","relay":"opencode->claude","verdict":"PASS","purpose":"claude danh gia consensus 7/8","claude_calls":1,"request":"T114 claude review C1-C4","reply":"PASS co dieu kien 7/8, thu tu C4>C3>C2>C1"}
