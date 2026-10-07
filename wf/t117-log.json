@@ -1,0 +1,1 @@
+﻿{"task":"T117","seq":1,"hash":"e0eca866c829c565","relay":"opencode->chatgpt-executor->codelocal->localcode","verdict":"PASS","executorVerdict":"UNCERTAIN","purpose":"C3 idempotent replay - key sha256(task,seq,hash,relay), dedupe LOG","claude_calls":0,"request":"T117 envelope idempotency","reply":"PASS replay 2 lan = 1 dong, dryrun 6/6"}

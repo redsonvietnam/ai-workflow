@@ -111,9 +111,23 @@ export function logEvent(entry) {
     requestBytes: entry.requestBytes ?? Buffer.byteLength(request, 'utf8'),
     replyBytes: entry.replyBytes ?? Buffer.byteLength(reply, 'utf8'),
   };
+  const idempotencyKey = sha256(JSON.stringify([
+    enriched.task ?? null,
+    enriched.seq ?? null,
+    enriched.hash ?? null,
+    enriched.relay ?? null,
+  ]));
+  enriched.idempotencyKey = idempotencyKey;
   const line = `- ${new Date().toISOString()} | ${JSON.stringify(enriched)}\n`;
   const prev = existsSync(LOG) ? readFileSync(LOG, 'utf8') : '# LOG\n';
+  const duplicate = prev.split(/\r?\n/).some((line) => {
+    const i = line.indexOf('|');
+    if (i < 0) return false;
+    try { return JSON.parse(line.slice(i + 1).trim()).idempotencyKey === idempotencyKey; } catch { return false; }
+  });
+  if (duplicate) return { logged: false, idempotencyKey };
   writeFileSync(LOG, prev + line);
+  return { logged: true, idempotencyKey };
 }
 
 function dryRun() {

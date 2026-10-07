@@ -1,0 +1,14 @@
+﻿[WF:v1]
+TASK: T117
+SEQ: 1
+ROLE: CHATGPT
+HASH: e0eca866c829c565
+OBJECTIVE: C3 Idempotent replay - CODE phan
+CONTEXT_REF: DECISIONS.md D11 + wf/t112-consensus.md
+INPUT: Claude: key do opencode tinh, intent/dong nguyen tu; side effect mo ho khong dao nguoc thi dung. Code hien tai da co state.json (SEQ), inbox/outbox file. Can: idempotency key cho moi event/proposal de replay khong tao side effect lap.
+ASK: Doc wf/pipeline.mjs (logEvent, make, parse) + co che inbox/outbox, them idempotency key: replay cung entry khong append LOG.md lan 2 (dedupe theo key = hash cua task+seq+hash+relay). Giu backward-compatible. Code qua CodeLocal, neu terminal block thi bao. OUTPUT 4 field. Toi da 60 tu.
+OUTPUT:
+  VERDICT: PASS|FAIL|UNCERTAIN
+  DELTA: <new information only>
+  ACTION: <next concrete action>
+  EVIDENCE: <path/hash/test>
