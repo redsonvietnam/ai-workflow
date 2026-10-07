@@ -29,7 +29,7 @@ HUMAN → scope/gate
 - **V2 test DONE (2026-10-07):** T101 read PASS, T102 write PASS (executionMode=live do user chọn; schema mismatch gateway/plugin — điều kiện bỏ ở D9), T103 escalation Claude PASS (claude_calls=1). Evidence: wf/t101-*, wf/t102-*, wf/t103-*.
 - **T104/T105 (2026-10-07):** harden pipeline HOÀN THÀNH qua phân vai architect→executor — verifyReply, decideVerdict, byte accounting, 9 fixtures PASS (main=b96e8c8). Còn: fallback inbox/outbox dry test; wire byte-accounting vào relay thật.
 - Session exam mobifone: đã logout (task thi đã xong — xem LOG.md mục Exam).
-- **Council T112-T115 (2026-10-07):** 4 model thảo luận — ChatGPT-architect (Think) × Grok shuttle 2 vòng, Claude chấm 7/8, chốt consensus 4 mục (wf/t112-consensus.md). **T116-T119 IMPLEMENTED** (D11): C4 observability (terminal transition+finalHash, payload strip), C3 idempotent replay (dedupe LOG), C2 acceptance-contract gate (`gate` exit 0/3), C1 state machine đơn giản (reapStale timeout/attempts/DEAD_LETTER). Executor blocked 2 lần ở T119 → fallback local. Phase 2 còn lại: schema/enrollment đầy đủ, lease/fencing (nếu >1 orchestrator), hash-chain.
+- **Council T112-T115 (2026-10-07):** 4 model thảo luận — ChatGPT-architect (Think) × Grok shuttle 2 vòng, Claude chấm 7/8, chốt consensus 4 mục (wf/t112-consensus.md). **T116-T119 IMPLEMENTED** (D11): C4 observability (terminal transition+finalHash, payload strip), C3 idempotent replay (dedupe LOG), C2 acceptance-contract gate (`gate` exit 0/3), C1 state machine đơn giản (reapStale timeout/attempts/DEAD_LETTER). Executor blocked 2 lần ở T119 → fallback local. **Phase 2 HOÀN THÀNH (2026-10-07): T121 schema gate (`validate` exit 2, wf/v1.schema.json), T122 escalation budget (1/task, 2/ngày, `escalation` exit 3 HUMAN_REQUIRED), T123 hash-chain (prevHash/eventHash canonical, `verifychain` exit 4 tamper detect — main=1ca1284).**
 - **Grok đã kết nối** (tab4, user Son Red): thread T112 https://grok.com/c/aea5bb31-8412-437c-ae94-2d6f6e6c4fcc
 
 ## Liên hệ nhanh
@@ -37,7 +37,7 @@ HUMAN → scope/gate
 - **ChatGPT-architect cũ** (archive — CodeLocal đã vô hiệu hóa Think trên tab này, T111 bootstrap sang thread mới): https://chatgpt.com/c/6ac5cc72-166c-83ec-adba-0c647ab76511
 - **ChatGPT-executor** (thực thi qua CodeLocal, tab3): https://chatgpt.com/c/6ac63252-3d5c-83ec-8216-b07878332525
 - **Claude** (escalation thật sự cần, tab2): https://claude.ai/chat/543d7115-27b3-48ce-a190-f42bb4d66e0d
-- Gemini = dự phòng khi ChatGPT hết quota (chưa kết nối). Grok = đã kết nối (tab4).
+- Gemini **đã kết nối** (tab5, đăng nhập sẵn, input hoạt động) https://gemini.google.com/app — dự phòng quota. Grok = đã kết nối (tab4).
 
 ## Phân vai (2026-10-07, user chỉ đạo)
 - **opencode**: điều phối/thuyển thư — sinh envelope, hash/SEQ, verify độc lập, gate commit. Ít làm việc trực tiếp.
