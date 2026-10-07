@@ -130,6 +130,23 @@ export function logEvent(entry) {
   return { logged: true, idempotencyKey };
 }
 
+export function acceptanceGate(raw) {
+  const clean = String(raw ?? '').replace(/^﻿/, '');
+  const field = (name) => clean.match(new RegExp('(?:^|\\n)\\s*' + name + '\\s*:\\s*([^\\n]+)', 'i'))?.[1]?.trim() ?? null;
+  const task = field('TASK');
+  const hash = field('HASH');
+  const ask = field('ASK');
+  const command = field('COMMAND');
+  const allowlist = field('ALLOWLIST');
+  const redTest = field('RED_TEST');
+  const specLock = Boolean(task && hash && ask);
+  const commandOk = Boolean(command && command !== 'BLOCKED');
+  const allowlistOk = Boolean(allowlist && allowlist !== 'BLOCKED');
+  const redTestOk = Boolean(redTest && /^(RED|FAIL|NOT_PASS|UNPASS)/i.test(redTest));
+  const checks = { command: commandOk, allowlist: allowlistOk, redTest: redTestOk, specLock };
+  return { ok: Object.values(checks).every(Boolean), checks, reason: Object.values(checks).every(Boolean) ? null : 'ACCEPTANCE_CONTRACT_BLOCKED' };
+}
+
 function dryRun() {
   const expectedHash = 'abc123';
   const expectedSeq = 7;
@@ -199,6 +216,12 @@ if (cmd === 'make') {
     const gateVerdict = decideVerdict(p, { pass: hasPass, fail: hasFail });
     console.log(JSON.stringify({ gateVerdict }, null, 2));
   }
+} else if (cmd === 'gate') {
+  const file = args[0];
+  const raw = file === '-' ? readFileSync(0, 'utf8') : readFileSync(file, 'utf8');
+  const gate = acceptanceGate(raw);
+  console.log(JSON.stringify(gate, null, 2));
+  if (!gate.ok) process.exit(3);
 } else if (cmd === 'log') {
   const payload = (args[0].startsWith('@') ? readFileSync(args[0].slice(1), 'utf8') : args[0]).replace(/^﻿/, '');
   logEvent(JSON.parse(payload));

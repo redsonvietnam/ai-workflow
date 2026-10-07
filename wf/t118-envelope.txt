@@ -1,0 +1,14 @@
+﻿[WF:v1]
+TASK: T118
+SEQ: 1
+ROLE: CHATGPT
+HASH: dcf002a80adb3bd3
+OBJECTIVE: C2 Acceptance-contract gate - CODE phan
+CONTEXT_REF: DECISIONS.md D11 + wf/t112-consensus.md
+INPUT: Claude: execution BLOCKED neu thieu command/allowlist/red-test/spec-lock. 4 kiem tra: (1) lenh chay duoc, (2) allowlist file, (3) red test (test chua pass truoc khi fix), (4) spec lock (envelope co TASK/HASH/ASK). D11: gate fail = khong duoc chay CodeLocal. Hien tai pipeline co make/parse/log/verifyReply/decideVerdict + git-gate rieng.
+ASK: Them acceptance-contract gate vao wf/pipeline.mjs: lenh 'gate <envelope>' kiem tra 4 dieu kien tren, exit 0 neu PASS / exit 3 neu BLOCKED (khac exit 2 cua verify). Backward-compatible. Code qua CodeLocal, terminal block thi bao. OUTPUT 4 field. Toi da 60 tu.
+OUTPUT:
+  VERDICT: PASS|FAIL|UNCERTAIN
+  DELTA: <new information only>
+  ACTION: <next concrete action>
+  EVIDENCE: <path/hash/test>

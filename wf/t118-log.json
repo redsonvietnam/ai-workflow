@@ -1,0 +1,1 @@
+﻿{"task":"T118","seq":1,"hash":"dcf002a80adb3bd3","relay":"opencode->chatgpt-executor->codelocal->localcode","verdict":"PASS","executorVerdict":"UNCERTAIN","purpose":"C2 acceptance-contract gate - lenh gate 4 checks exit 0/3","claude_calls":0,"request":"T118 envelope acceptance gate + retry","reply":"PASS gate exit0/3, dryrun 6/6"}
