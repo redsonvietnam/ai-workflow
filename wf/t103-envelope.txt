@@ -1,0 +1,14 @@
+﻿[WF:v1]
+TASK: T103
+SEQ: 1
+ROLE: CLAUDE
+HASH: 91176c3ed93cbea7
+OBJECTIVE: Escalation review: review WF:v1 envelope protocol
+CONTEXT_REF: DECISIONS.md#D8
+INPUT: V1.5 da chot; T100 relay PASS, T101 read PASS, T102 write PASS (executionMode=live, schema mismatch gateway/plugin)
+ASK: Nham 1: WF:v1 protocol co lo hong nao cho phep model tu sua HASH/SEQ hoac tu chon VERDICT khong? Nham 2: voi gateway schema mismatch (nextAction vuot qua published schema), nen dat dieu kien bo nao? Tra loi bang 4 field, toi da 70 tu.
+OUTPUT:
+  VERDICT: PASS|FAIL|UNCERTAIN
+  DELTA: <new information only>
+  ACTION: <next concrete action>
+  EVIDENCE: <path/hash/test>

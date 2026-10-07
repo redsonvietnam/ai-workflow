@@ -1,0 +1,14 @@
+﻿[WF:v1]
+TASK: T102
+SEQ: 3
+ROLE: CHATGPT
+HASH: 46b3fcfe31c2d8be
+OBJECTIVE: Tim noi chon execution mode cua CodeLocal
+CONTEXT_REF: DECISIONS.md#D6
+INPUT: Loi: CODELOCAL_EXECUTION_MODE_SELECTION_REQUIRED (Safe Workspace|Live Project); khong co widget UI trong chat
+ASK: Goi CodeLocal workspace(action=info) va workspace(action=security) de xac dinh execution mode thuoc hanh dong/kenh nao (tool nao, action nao, hay dashboard). Neu co action chon mode thi chon Safe Workspace. OUTPUT 4 field: neu tim ra -> VERDICT UNCERTAIN + DELTA noi chon, ACTION buoc sau; toi da 80 tu.
+OUTPUT:
+  VERDICT: PASS|FAIL|UNCERTAIN
+  DELTA: <new information only>
+  ACTION: <next concrete action>
+  EVIDENCE: <path/hash/test>

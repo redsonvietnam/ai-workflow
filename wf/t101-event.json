@@ -1,0 +1,1 @@
+﻿{"task":"T101","seq":1,"hash":"96fa034fd1ba641b","relay":"opencode->chatgpt->codelocal->git","verdict":"PASS","direction":"READ local via CodeLocal plugin","head_expected":"4566e88","head_evidenced":"4566e88","match":true}

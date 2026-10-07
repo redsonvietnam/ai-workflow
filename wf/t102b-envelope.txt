@@ -1,0 +1,14 @@
+﻿[WF:v1]
+TASK: T102
+SEQ: 2
+ROLE: CHATGPT
+HASH: 4ce791cee7d964d5
+OBJECTIVE: Retry T102 write sau khi chon execution mode
+CONTEXT_REF: DECISIONS.md#D6
+INPUT: Loi truoc: CODELOCAL_EXECUTION_MODE_SELECTION_REQUIRED
+ASK: Truoc khi write: goi workspace(action=access, mode=...) chon che do Safe Workspace (hoac mode an toan nhat tuong ung). Roi retry edit(action=write) wf/t102-write-proof.txt='4566e88', verify read. OUTPUT 4 field, toi da 60 tu.
+OUTPUT:
+  VERDICT: PASS|FAIL|UNCERTAIN
+  DELTA: <new information only>
+  ACTION: <next concrete action>
+  EVIDENCE: <path/hash/test>

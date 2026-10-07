@@ -1,0 +1,14 @@
+﻿[WF:v1]
+TASK: T102
+SEQ: 5
+ROLE: CHATGPT
+HASH: e98f41c2cef9c3ac
+OBJECTIVE: Set executionMode=live va write proof file
+CONTEXT_REF: DECISIONS.md#D6
+INPUT: User chon Live Project; gateway yeu cau workspace(action=execution, executionMode=live, workspaceKey=7d88aaa820804e0044412851ea20ecd4::DESKTOP-JVB3JGA::ai-workflow-ac2fe45f3e)
+ASK: Chay workspace(action=execution, executionMode=live, workspaceKey=7d88aaa820804e0044412851ea20ecd4::DESKTOP-JVB3JGA::ai-workflow-ac2fe45f3e) truoc. Roi edit(action=write) wf/t102-write-proof.txt noi dung '4566e88'. Verify bang read. OUTPUT 4 field, toi da 50 tu.
+OUTPUT:
+  VERDICT: PASS|FAIL|UNCERTAIN
+  DELTA: <new information only>
+  ACTION: <next concrete action>
+  EVIDENCE: <path/hash/test>

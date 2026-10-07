@@ -1,0 +1,14 @@
+﻿[WF:v1]
+TASK: T102
+SEQ: 4
+ROLE: CHATGPT
+HASH: af8905c8f78599a0
+OBJECTIVE: Lay nguyen van loi edit va retry 1 lan
+CONTEXT_REF: DECISIONS.md#D6
+INPUT: Phat hien: workspace action=access mode enum chi co prompt|smart|full; khong co tool nao chon Safe Workspace|Live Project; audit log ghi approval_mode(mode=smart) nhung khong co edit_file nao run
+ASK: 1) Paste NGUYEN VAN doan JSON/text loi truoc do tu CodeLocal (khong t├│m tß║»t). 2) Retry dung 1 lan edit(action=write) wf/t102-write-proof.txt='4566e88'. 3) Neu loi lai, paste nguyen van va biet nguoi nao sinh loi (OpenAI plugin hay CodeLocal gateway). OUTPUT 4 field, toi da 70 tu + 2 doan loi.
+OUTPUT:
+  VERDICT: PASS|FAIL|UNCERTAIN
+  DELTA: <new information only>
+  ACTION: <next concrete action>
+  EVIDENCE: <path/hash/test>

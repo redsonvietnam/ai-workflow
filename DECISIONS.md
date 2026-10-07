@@ -75,3 +75,11 @@ Mock fixtures test parser/retry/chunking/git gate với 0 quota AI thật. Chạ
 **Gate cuối (đo bằng số):** 1 task thật, zero copy thủ công, Claude_calls ≤ 1 (V2), tổng token relay được ghi lại.
 
 **CẮT khỏi V1.5:** browser-use, desktop-commander, CodeLocal execute (chỉ probe), autonomous loop, Gemini/Grok integration, session_state.json, ask_all, fork nguyên khối mcp-web-llm, nối Claude tuần đầu.
+
+## D9. V2 test results + execution mode + dieu kien bo (2026-10-07)
+- **V2-TC2 (T101) PASS:** ChatGPT doc git local qua CodeLocal plugin, HEAD 4566e88 khop doc lap. Huong READ doc lap end-to-end.
+- **V2-TC3 (T102) PASS sau 6 SEQ:** write wf/t102-write-proof.txt='4566e88' + verify SHA-256 doc lap (c1b38adf...). Huong WRITE doc lap end-to-end.
+- **Execution mode = quyen USER, chon 1 lan/workspace (user chon `live` = Live Project):** gateway tra CODELOCAL_EXECUTION_MODE_SELECTION_REQUIRED truoc mutation dau; default la `safe` (isolated checkout). Cai dat: workspace(action=execution, executionMode=live, workspaceKey=7d88aaa8...::ai-workflow-ac2fe45f3e). Layer nay KHAC approval-mode (agent/prompt) trong ~/.codelocal/approval-mode.json.
+- **Dieu kien bo (schema mismatch gateway/plugin):** gateway nextAction yeu cau workspace(action=execution) nhung OpenAI manifest/plugin schema v15 khong co (Refresh khong doi gi, npm 1.5.87 da latest). Goi trim-enum van di qua. Neu mismatch lap >2 lan/tuan HOAC 1 lan mat du lieu -> pin phien ban plugin, hoac bo gateway nay (Claude goi y T103).
+- **V2-TC1 (T103) PASS:** escalation opencode->Claude tron ven, parse 4/4, claude_calls=1. Gop y cua Claude (ghi nhan, chua harden): (a) opencode phai SO KHOP reply-side HASH, khong tin echo cua model; (b) VERDICT chi la khuyen nghi, PASS that do gate code quyet (implement hien tai da nhu vay); (c) HASH/SEQ do script tinh la nguon duy nhat.
+- **Gate V2:** T100 relay PASS (zero copy), T101 read PASS, T102 write PASS, T103 claude_calls=1 <= 1. Con lai: harden reply-side HASH check + nang gate tu VERDICT-thanh-ky-len-thanh-so.

@@ -47,7 +47,7 @@ export function makeEnvelope({ task, role = 'CHATGPT', objective, contextRef = '
 // Parser chịu lỗi: chấp nhận markdown bold, bullet, retry khi thiếu VERDICT.
 export function parseResponse(raw) {
   const out = { ok: false, verdict: null, delta: null, action: null, evidence: null, chars: raw.length, hash: sha256(raw).slice(0, 16) };
-  const clean = raw.replace(/\*\*/g, '').replace(/^#{1,6}\s*/gm, '');
+  const clean = raw.replace(/^﻿/, '').replace(/\*\*/g, '').replace(/^#{1,6}\s*/gm, '');
   const vm = clean.match(/\bVERDICT\b[\s:\-–—]{0,12}\b(PASS|FAIL|UNCERTAIN)\b/i)
     || clean.match(/\b(PASS|FAIL|UNCERTAIN)\b(?=[\s,.)]|$)/i);
   if (!vm) { out.reason = 'VERDICT missing — needs retry'; return out; }
@@ -97,7 +97,7 @@ const [cmd, ...args] = process.argv.slice(2);
 if (cmd === 'make') {
   const o = {};
   for (const a of args) { const i = a.indexOf('='); o[a.slice(0, i)] = a.slice(i + 1); }
-  const { envelope, hash, seq } = makeEnvelope({ task: o.task, objective: o.objective, ask: o.ask, input: o.input || '', contextRef: o.contextRef || '' });
+  const { envelope, hash, seq } = makeEnvelope({ task: o.task, role: o.role || 'CHATGPT', objective: o.objective, ask: o.ask, input: o.input || '', contextRef: o.contextRef || '', constraints: o.constraints ? o.constraints.split('|') : [] });
   console.log(envelope);
   console.error(`HASH=${hash} SEQ=${seq}`);
 } else if (cmd === 'parse') {
@@ -106,7 +106,7 @@ if (cmd === 'make') {
   console.log(JSON.stringify(p, null, 2));
   if (!p.ok) process.exit(2);
 } else if (cmd === 'log') {
-  const payload = args[0].startsWith('@') ? readFileSync(args[0].slice(1), 'utf8') : args[0];
+  const payload = (args[0].startsWith('@') ? readFileSync(args[0].slice(1), 'utf8') : args[0]).replace(/^﻿/, '');
   logEvent(JSON.parse(payload));
   console.log('logged');
 } else {
