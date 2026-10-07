@@ -1,0 +1,14 @@
+﻿[WF:v1]
+TASK: T123
+SEQ: 1
+ROLE: CHATGPT
+HASH: e3b779128b27a2c1
+OBJECTIVE: Phase 2c - Evidence hash-chain
+CONTEXT_REF: DECISIONS.md D11 + T120 spec
+INPUT: Spec T123: mß╗ùi event trong LOG g├ín prevHash + hash (canonical metadata, KH├öNG payload). Verify: exit 4 nß║┐u chain ─æß╗⌐t (sß╗¡a 1 event lß╗ïch sß╗¡). CODE: wf/report.mjs + LOG writer trong pipeline.mjs. Acceptance: sß╗¡a 1 event c┼⌐ -> verify ph├ít hiß╗çn.
+ASK: Th├¬m hash-chain: logEvent t├¡nh eventHash = sha256(prevHash + canonical JSON cß╗ºa metadata), l╞░u prevHash/eventHash; CLI 'verifychain' ─æß╗ìc LOG.md t├¡nh lß║íi tß╗½ng d├▓ng, ─æß╗⌐t -> exit 4. Backward-compatible (d├▓ng c┼⌐ kh├┤ng hash = bß╗Å qua/d├ín nh├ún legacy). Code qua CodeLocal, terminal block th├¼ b├ío. OUTPUT 4 field, tß╗æi ─æa 60 tß╗½.
+OUTPUT:
+  VERDICT: PASS|FAIL|UNCERTAIN
+  DELTA: <new information only>
+  ACTION: <next concrete action>
+  EVIDENCE: <path/hash/test>

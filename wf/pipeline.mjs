@@ -17,6 +17,52 @@ function loadState() {
 function saveState(s) { writeFileSync(STATE, JSON.stringify(s, null, 2)); }
 export function sha256(s) { return createHash('sha256').update(s, 'utf8').digest('hex'); }
 
+export function canonical(v) {
+  if (Array.isArray(v)) return '[' + v.map(canonical).join(',') + ']';
+  if (v && typeof v === 'object') {
+    return '{' + Object.keys(v).sort().map((k) => JSON.stringify(k) + ':' + canonical(v[k])).join(',') + '}';
+  }
+  return JSON.stringify(v ?? null);
+}
+export function computeEventHash(prevHash, meta) {
+  const { prevHash: _p, eventHash: _e, ...rest } = meta;
+  return sha256((prevHash ?? 'GENESIS') + canonical(rest));
+}
+export function lastEventHash() {
+  if (!existsSync(LOG)) return null;
+  const lines = readFileSync(LOG, 'utf8').split(/\r?\n/);
+  for (let i = lines.length - 1; i >= 0; i--) {
+    const j = lines[i].indexOf('|');
+    if (j < 0) continue;
+    try {
+      const ev = JSON.parse(lines[i].slice(j + 1).trim());
+      if (ev.eventHash) return ev.eventHash;
+    } catch { continue; }
+  }
+  return null;
+}
+export function verifyChain(logText) {
+  const checked = [];
+  const legacy = [];
+  const broken = [];
+  let prev = 'GENESIS';
+  for (const line of String(logText ?? '').split(/\r?\n/)) {
+    const j = line.indexOf('|');
+    if (j < 0) continue;
+    let ev;
+    try { ev = JSON.parse(line.slice(j + 1).trim()); } catch { continue; }
+    if (!ev || !ev.eventHash) { legacy.push(ev?.task ?? '?'); continue; }
+    const expect = computeEventHash(ev.prevHash, ev);
+    if (ev.prevHash !== prev || ev.eventHash !== expect) {
+      broken.push({ task: ev.task, linkOk: ev.prevHash === prev, hashOk: ev.eventHash === expect });
+      break;
+    }
+    prev = ev.eventHash;
+    checked.push(ev.task ?? '?');
+  }
+  return { ok: broken.length === 0, checked: checked.length, legacy: legacy.length, broken };
+}
+
 export function checkEscalation(task, today = new Date().toISOString().slice(0, 10)) {
   const st = loadState();
   const calls = st.claudeCalls ?? { byDate: {}, byTask: {} };
@@ -154,6 +200,9 @@ export function logEvent(entry) {
     enriched.relay ?? null,
   ]));
   enriched.idempotencyKey = idempotencyKey;
+  const prevEventHash = lastEventHash();
+  enriched.prevHash = prevEventHash ?? 'GENESIS';
+  enriched.eventHash = computeEventHash(enriched.prevHash, enriched);
   const line = `- ${new Date().toISOString()} | ${JSON.stringify(enriched)}\n`;
   const prev = existsSync(LOG) ? readFileSync(LOG, 'utf8') : '# LOG\n';
   const duplicate = prev.split(/\r?\n/).some((line) => {
@@ -335,6 +384,10 @@ if (cmd === 'make') {
   const budget = checkEscalation(task, today);
   console.log(JSON.stringify(budget, null, 2));
   if (!budget.ok) process.exit(3);
+} else if (cmd === 'verifychain') {
+  const r = verifyChain(existsSync(LOG) ? readFileSync(LOG, 'utf8') : '');
+  console.log(JSON.stringify(r, null, 2));
+  if (!r.ok) process.exit(4);
 } else if (cmd === 'reap') {
   const st = loadState();
   st.tasks = st.tasks ?? {};
