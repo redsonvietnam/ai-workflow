@@ -82,4 +82,4 @@ node wf/pipeline.mjs verifychain   # xác nhận hash-chain còn nguyên vẹn s
 - [x] Không còn untracked ngoài danh sách chủ ý — `git status --porcelain` phải = 0 trước push.
 - [x] Chạy `node wf/pipeline.mjs verifychain` → exit 0 (checked 7, broken 0).
 - [x] Human gate: **user đã xác nhận push (2026-10-07)** — tên `redsonvietnam/ai-workflow`, **private**; `.gitignore` + `.gitattributes` + allowlist `^\.git(ignore|attributes)$` commit trước push (architect B).
-- [ ] Sau push: `git ls-remote origin main` khớp HEAD local.
+- [x] Sau push: `git ls-remote origin main` khớp HEAD local — **PASS** (remote `551cad1962440…` == local, repo PRIVATE, default `main`, https://github.com/redsonvietnam/ai-workflow).
