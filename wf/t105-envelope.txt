@@ -1,0 +1,14 @@
+﻿[WF:v1]
+TASK: T105
+SEQ: 1
+ROLE: CHATGPT
+HASH: 1e270950b363d675
+OBJECTIVE: Implement harden pipeline theo spec T104
+CONTEXT_REF: DECISIONS.md#D9
+INPUT: SPEC tu architect (T104): (1) verifyReply(raw, expectedHash, expectedSeq) trong wf/pipeline.mjs - parse HASH/SEQ tu reply, khop vs script; sai/missing -> ok=false reason=HASH_SEQ_MISMATCH, retry toi da 1 lan; (2) decideVerdict(parsed, conditions) - script quyet PASS/FAIL/UNCERTAIN, VERDICT model chi recommendation, mismatch ghi ro; (3) logEvent + requestChars/replyChars/requestBytes/replyBytes dung Buffer.byteLength utf8, backward-compatible; (4) fixture test: clean, noisy, HASH sai, SEQ sai, missing, verdict mismatch, retry success/fail - dry-run toan bo khong sleep.
+ASK: Dung CodeLocal edit SUA wf/pipeline.mjs theo spec (giu ESM, khong dependency them, dry-run van phai PASS va deterministic 6/6 + fixture moi PASS). Sau do chay node wf\pipeline.mjs verify ket qua. OUTPUT 4 field, EVIDENCE = ket qua dry-run + SHA256 file. Toi da 60 tu.
+OUTPUT:
+  VERDICT: PASS|FAIL|UNCERTAIN
+  DELTA: <new information only>
+  ACTION: <next concrete action>
+  EVIDENCE: <path/hash/test>

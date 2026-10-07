@@ -1,0 +1,1 @@
+﻿{"task":"T105","seq":1,"hash":"1e270950b363d675","relay":"opencode->chatgpt-architect(T104)->chatgpt-executor->codelocal->localcode","verdict":"PASS","verify":"independent-dryrun-9fix","sha256":"48d2b4bafb613dac91163b71e03bfec3ae8839da4b8dd0eaeecf2e6480abaf40","claude_calls":0,"delivered":"verifyReply + decideVerdict + byte accounting + fallback fixtures"}

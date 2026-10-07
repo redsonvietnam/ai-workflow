@@ -1,0 +1,1 @@
+﻿{"task":"T104","seq":1,"hash":"7468353aaa1f3fb7","relay":"opencode->chatgpt-architect","verdict":"PASS","purpose":"design spec: verifyReply + decideVerdict + byte accounting + fallback fixtures","reply_hash":"pending-parse","claude_calls":0}

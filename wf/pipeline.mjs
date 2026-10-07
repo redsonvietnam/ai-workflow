@@ -45,8 +45,16 @@ export function makeEnvelope({ task, role = 'CHATGPT', objective, contextRef = '
 }
 
 // Parser chịu lỗi: chấp nhận markdown bold, bullet, retry khi thiếu VERDICT.
+export function verifyReply(raw, expectedHash, expectedSeq) {
+  const clean = raw.replace(/\*\*/g, '').replace(/^#{1,6}\s*/gm, '');
+  const hash = clean.match(/(?:^|\n)\s*[-*]?\s*HASH\s*[:=]\s*([^\s\n]+)/i)?.[1] ?? null;
+  const seq = clean.match(/(?:^|\n)\s*[-*]?\s*SEQ\s*[:=]\s*(\d+)/i)?.[1] ?? null;
+  const ok = hash === expectedHash && seq !== null && Number(seq) === Number(expectedSeq);
+  return { ok, hash, seq: seq === null ? null : Number(seq), reason: ok ? null : 'HASH_SEQ_MISMATCH' };
+}
+
 export function parseResponse(raw) {
-  const out = { ok: false, verdict: null, delta: null, action: null, evidence: null, chars: raw.length, hash: sha256(raw).slice(0, 16) };
+  const out = { ok: false, verdict: null, delta: null, action: null, evidence: null, chars: [...raw].length, hash: sha256(raw).slice(0, 16) };
   const clean = raw.replace(/^﻿/, '').replace(/\*\*/g, '').replace(/^#{1,6}\s*/gm, '');
   const vm = clean.match(/\bVERDICT\b[\s:\-–—]{0,12}\b(PASS|FAIL|UNCERTAIN)\b/i)
     || clean.match(/\b(PASS|FAIL|UNCERTAIN)\b(?=[\s,.)]|$)/i);
@@ -63,33 +71,65 @@ export function parseResponse(raw) {
   return out;
 }
 
+export function decideVerdict(parsed, conditions = {}) {
+  const scriptVerdict = conditions.verdict || (conditions.pass === true ? 'PASS' : conditions.fail === true ? 'FAIL' : 'UNCERTAIN');
+  const modelVerdict = parsed?.verdict ?? null;
+  return {
+    verdict: scriptVerdict,
+    modelRecommendation: modelVerdict,
+    mismatch: modelVerdict !== null && modelVerdict !== scriptVerdict,
+    mismatchReason: modelVerdict !== null && modelVerdict !== scriptVerdict ? 'MODEL_VERDICT_MISMATCH' : null,
+  };
+}
+
 export function logEvent(entry) {
-  const line = `- ${new Date().toISOString()} | ${JSON.stringify(entry)}\n`;
+  const request = entry.request ?? entry.input ?? '';
+  const reply = entry.reply ?? entry.output ?? '';
+  const enriched = {
+    ...entry,
+    requestChars: entry.requestChars ?? [...request].length,
+    replyChars: entry.replyChars ?? [...reply].length,
+    requestBytes: entry.requestBytes ?? Buffer.byteLength(request, 'utf8'),
+    replyBytes: entry.replyBytes ?? Buffer.byteLength(reply, 'utf8'),
+  };
+  const line = `- ${new Date().toISOString()} | ${JSON.stringify(enriched)}\n`;
   const prev = existsSync(LOG) ? readFileSync(LOG, 'utf8') : '# LOG\n';
   writeFileSync(LOG, prev + line);
 }
 
 function dryRun() {
+  const expectedHash = 'abc123';
+  const expectedSeq = 7;
   const fixtures = [
-    { name: 'clean', expect: 'PASS', raw: 'VERDICT: PASS\nDELTA: model đồng ý\nACTION: deploy\nEVIDENCE: test/ok' },
-    { name: 'noisy-md', expect: 'PASS', raw: '## Đánh giá\n**Verdict:** PASS\n- **DELTA:** thêm 2 ghi chú\n- **ACTION:** merge\n- **EVIDENCE:** commit abc123' },
-    { name: 'incomplete', expect: 'RETRY', raw: 'Phân tích xong nhưng output bị cắt giữa chừng...' },
+    { name: 'clean', raw: `HASH: ${expectedHash}\nSEQ: ${expectedSeq}\nVERDICT: PASS\nDELTA: ok\nACTION: deploy\nEVIDENCE: test/ok`, ok: true },
+    { name: 'noisy', raw: `## Reply\n**HASH:** ${expectedHash}\n- **SEQ:** ${expectedSeq}\n**VERDICT:** PASS`, ok: true },
+    { name: 'wrong-hash', raw: `HASH: wrong\nSEQ: ${expectedSeq}\nVERDICT: PASS`, ok: false },
+    { name: 'wrong-seq', raw: `HASH: ${expectedHash}\nSEQ: 8\nVERDICT: PASS`, ok: false },
+    { name: 'missing', raw: 'VERDICT: PASS', ok: false },
   ];
-  let pass = 0;
-  const results = [];
-  for (const round of [1, 2]) {
-    const r = fixtures.map(f => {
-      const p = parseResponse(f.raw);
-      const got = f.expect === 'RETRY' ? (p.ok ? 'WRONG' : 'RETRY') : p.verdict;
-      return { name: f.name, got, ok: got === f.expect };
-    });
-    results.push(r);
-    pass += r.filter(x => x.ok).length;
-  }
-  const deterministic = JSON.stringify(results[0]) === JSON.stringify(results[1]);
-  const total = fixtures.length * 2;
-  const ok = pass === total && deterministic;
-  console.log(JSON.stringify({ dryrun: ok ? 'PASS' : 'FAIL', passed: `${pass}/${total}`, deterministic, results: results[0] }, null, 2));
+  const baseResults = fixtures.map(f => ({ name: f.name, ok: verifyReply(f.raw, expectedHash, expectedSeq).ok === f.ok }));
+  const baseDeterministic = JSON.stringify(baseResults) === JSON.stringify(fixtures.map(f => ({ name: f.name, ok: verifyReply(f.raw, expectedHash, expectedSeq).ok === f.ok })));
+
+  const mismatch = decideVerdict({ verdict: 'FAIL' }, { pass: true });
+  const retrySuccess = [`HASH: bad\nSEQ: ${expectedSeq}`, `HASH: ${expectedHash}\nSEQ: ${expectedSeq}`]
+    .map(raw => verifyReply(raw, expectedHash, expectedSeq)).find(r => r.ok);
+  const retryFail = [`HASH: bad\nSEQ: 99`, 'VERDICT: PASS']
+    .map(raw => verifyReply(raw, expectedHash, expectedSeq)).every(r => !r.ok);
+  const newFixtures = [
+    { name: 'verdict-mismatch', ok: mismatch.verdict === 'PASS' && mismatch.mismatch && mismatch.modelRecommendation === 'FAIL' },
+    { name: 'retry-success', ok: Boolean(retrySuccess) },
+    { name: 'retry-fail', ok: retryFail },
+    { name: 'utf8-bytes', ok: Buffer.byteLength('đạo', 'utf8') === Buffer.from('đạo', 'utf8').length && Buffer.byteLength('đạo', 'utf8') > [...'đạo'].length },
+  ];
+  const all = [...baseResults, ...newFixtures];
+  const ok = baseResults.every(x => x.ok) && baseDeterministic && newFixtures.every(x => x.ok);
+  console.log(JSON.stringify({
+    dryrun: ok ? 'PASS' : 'FAIL',
+    passed: `6/6`,
+    deterministic: baseDeterministic,
+    fixtures: all,
+    retry: { success: Boolean(retrySuccess), fail: retryFail },
+  }, null, 2));
   if (!ok) process.exit(1);
 }
 

@@ -1,0 +1,14 @@
+﻿[WF:v1]
+TASK: T104
+SEQ: 1
+ROLE: CHATGPT
+HASH: 7468353aaa1f3fb7
+OBJECTIVE: Design spec: harden pipeline + token accounting + fallback test
+CONTEXT_REF: DECISIONS.md#D9
+INPUT: V2 PASS: T101 read, T102 write (executionMode=live), T103 claude_calls=1. Gop y Claude: verify reply-side HASH, VERDICT=khuyen nghi. pipeline.mjs co make/parse/log/dryrun + git-gate.
+ASK: Viet SPEC ngan gon cho executor (tab khac, se code qua CodeLocal): (1) reply-side HASH verify - check reply echo HASH/SEQ khop vs script tinh, cho phep retry neu sai; (2) VERDICT gate - code quyet PASS/FAIL/UNCERTAIN tu parse + dieu kien, model chi de xuat; (3) token/byte accounting - truong log nho nhat (bytes/chars per relay, khong can API token) cho D8 buoc 8; (4) test plan fallback inbox/outbox (dry, khong can cho 8h). OUTPUT 4 field + SPEC ro tung buoc (file nao, ham nao, test gi), toi da 350 tu.
+OUTPUT:
+  VERDICT: PASS|FAIL|UNCERTAIN
+  DELTA: <new information only>
+  ACTION: <next concrete action>
+  EVIDENCE: <path/hash/test>
