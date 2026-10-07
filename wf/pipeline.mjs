@@ -20,6 +20,11 @@ export function sha256(s) { return createHash('sha256').update(s, 'utf8').digest
 export function makeEnvelope({ task, role = 'CHATGPT', objective, contextRef = '', input = '', ask, constraints = [] }) {
   const st = loadState();
   st.seq[task] = (st.seq[task] || 0) + 1;
+  st.tasks = st.tasks ?? {};
+  if (!st.tasks[task]) {
+    const now = new Date().toISOString();
+    st.tasks[task] = { state: 'CREATED', attempts: 0, timeoutMs: 8 * 3600000, createdAt: now, updatedAt: now };
+  }
   saveState(st);
   const seq = st.seq[task];
   const body = { task, seq, role, objective, contextRef, input, ask, constraints };
@@ -89,6 +94,9 @@ export function logEvent(entry) {
     from: entry.stateFrom ?? null,
     to: entry.stateTo ?? entry.state ?? null,
   };
+  if (transition.from != null && transition.to != null) {
+    assertTransition(transition.from, transition.to);
+  }
   const terminalStates = new Set(['DONE', 'FAILED', 'BLOCKED', 'DEAD_LETTER', 'HUMAN_REQUIRED']);
   const isTerminal = entry.terminal === true || terminalStates.has(transition.to);
   const finalHash = entry.finalHash ?? entry.replyHash ?? null;
@@ -145,6 +153,37 @@ export function acceptanceGate(raw) {
   const redTestOk = Boolean(redTest && /^(RED|FAIL|NOT_PASS|UNPASS)/i.test(redTest));
   const checks = { command: commandOk, allowlist: allowlistOk, redTest: redTestOk, specLock };
   return { ok: Object.values(checks).every(Boolean), checks, reason: Object.values(checks).every(Boolean) ? null : 'ACCEPTANCE_CONTRACT_BLOCKED' };
+}
+
+export const STATES = ['CREATED', 'RUNNING', 'DONE', 'FAILED', 'DEAD_LETTER'];
+export const MAX_ATTEMPTS = 3;
+export const TRANSITIONS = {
+  CREATED: ['RUNNING', 'DEAD_LETTER'],
+  RUNNING: ['RUNNING', 'DONE', 'FAILED', 'DEAD_LETTER'],
+  FAILED: ['RUNNING', 'DEAD_LETTER'],
+  DONE: [],
+  DEAD_LETTER: [],
+};
+export function assertTransition(from, to) {
+  if (!STATES.includes(from) || !STATES.includes(to)) throw new Error('INVALID_STATE');
+  if (!TRANSITIONS[from].includes(to)) throw new Error('INVALID_STATE_TRANSITION');
+  return to;
+}
+export function reapStale(tasks, now = Date.now()) {
+  const changed = {};
+  for (const [k, t] of Object.entries(tasks)) {
+    if (!['RUNNING', 'FAILED'].includes(t.state)) continue;
+    const timeoutMs = t.timeoutMs ?? 8 * 3600000;
+    if (now - (t.updatedAt ?? 0) <= timeoutMs) continue;
+    const attempts = (t.attempts ?? 0) + 1;
+    changed[k] = {
+      ...t,
+      state: attempts >= MAX_ATTEMPTS ? 'DEAD_LETTER' : 'FAILED',
+      attempts,
+      updatedAt: now,
+    };
+  }
+  return changed;
 }
 
 function dryRun() {
@@ -222,6 +261,12 @@ if (cmd === 'make') {
   const gate = acceptanceGate(raw);
   console.log(JSON.stringify(gate, null, 2));
   if (!gate.ok) process.exit(3);
+} else if (cmd === 'reap') {
+  const st = loadState();
+  st.tasks = st.tasks ?? {};
+  const changed = reapStale(st.tasks);
+  saveState(st);
+  console.log(JSON.stringify({ changed, tasks: st.tasks }, null, 2));
 } else if (cmd === 'log') {
   const payload = (args[0].startsWith('@') ? readFileSync(args[0].slice(1), 'utf8') : args[0]).replace(/^﻿/, '');
   logEvent(JSON.parse(payload));

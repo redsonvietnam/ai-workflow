@@ -1,0 +1,1 @@
+﻿{"task":"T119","seq":1,"hash":"7914d3089a70de6f","relay":"opencode->chatgpt-executor->BLOCKED->opencode-local","verdict":"PASS","executorVerdict":"UNCERTAIN x2","purpose":"C1 runtime state don gian - state machine + timeout + attempts + DEAD_LETTER","claude_calls":0,"request":"T119 envelope runtime state + retry","reply":"PASS S1-S11 fallback local"}
