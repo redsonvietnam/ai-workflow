@@ -1,0 +1,14 @@
+﻿[WF:v1]
+TASK: T100
+SEQ: 3
+ROLE: CHATGPT
+HASH: 8a0629e571b0eb3b
+OBJECTIVE: Verify WF:v1 relay end-to-end hop 1 (opencode->ChatGPT)
+CONTEXT_REF: DECISIONS.md#D8
+INPUT: dryrun=PASS 6/6 deterministic; gitgate=commit 688cd72; codelocal_probe=PASS 14 tools OAuth
+ASK: Xac nhan trang thai V1.5 bang 4 field OUTPUT (VERDICT/DELTA/ACTION/EVIDENCE), toi da 120 tu, tieng Viet.
+OUTPUT:
+  VERDICT: PASS|FAIL|UNCERTAIN
+  DELTA: <new information only>
+  ACTION: <next concrete action>
+  EVIDENCE: <path/hash/test>

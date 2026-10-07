@@ -53,7 +53,7 @@ export function parseResponse(raw) {
   if (!vm) { out.reason = 'VERDICT missing — needs retry'; return out; }
   out.verdict = vm[1].toUpperCase();
   const grab = (name) => {
-    const m = clean.match(new RegExp(name + '[\\s:\\-–—]{0,12}([^\\n]+)', 'i'));
+    const m = clean.match(new RegExp('(?:^|\\n)\\s*[-*]?\\s*' + name + '[\\s:\\-–—]{0,12}([^\\n]+)', 'i'));
     return m ? m[1].trim() : null;
   };
   out.delta = grab('DELTA');
@@ -95,7 +95,8 @@ function dryRun() {
 
 const [cmd, ...args] = process.argv.slice(2);
 if (cmd === 'make') {
-  const o = Object.fromEntries(args.map(a => a.split('=')));
+  const o = {};
+  for (const a of args) { const i = a.indexOf('='); o[a.slice(0, i)] = a.slice(i + 1); }
   const { envelope, hash, seq } = makeEnvelope({ task: o.task, objective: o.objective, ask: o.ask, input: o.input || '', contextRef: o.contextRef || '' });
   console.log(envelope);
   console.error(`HASH=${hash} SEQ=${seq}`);
@@ -105,7 +106,8 @@ if (cmd === 'make') {
   console.log(JSON.stringify(p, null, 2));
   if (!p.ok) process.exit(2);
 } else if (cmd === 'log') {
-  logEvent(JSON.parse(args[0]));
+  const payload = args[0].startsWith('@') ? readFileSync(args[0].slice(1), 'utf8') : args[0];
+  logEvent(JSON.parse(payload));
   console.log('logged');
 } else {
   dryRun();

@@ -6,11 +6,16 @@
 - **Thảo luận meta-workflow (2026-10-07):** context + tranh luận A/B/C đã đưa vào cả 2 khung chat. Vòng 1: ChatGPT đề xuất phương án C + [WF:v1] + verify CodeLocal + Pilot P1. Vòng 2: Claude phản biện (C="B ngoại giao"? quota loop, hash phải do opencode, git-as-memory, dry-run, threat model). Vòng 3: ChatGPT trả lời 4 điểm + chốt schema V1. **Vòng chốt: Claude ĐỒNG Ý V1** với 2 điều kiện: (1) escalation bằng code, ngưỡng 2 Claude/task; (2) CodeLocal bước 0 trước mọi verify.
 - **Ghi state:** tạo `D:\ai-workflow\{CONTEXT,DECISIONS,LOG}.md` — hệ thống record local theo D1.
 
-## Việc tiếp theo = V1.5 checklist (DECISIONS.md D8)
-1. CodeLocal probe 1h: ChatGPT Free có thấy connector/MCP không → không thì STOP.
-2. Dry-run + parser + git gate (0 quota) → adapter Playwright mỏng ChatGPT → 1 task thật.
-3. Hard stop: adapter chưa ổn sau 8h → fallback inbox/outbox file.
+## 2026-10-07 (thực thi V1.5 — checklist 1→7)
+- **Bước 1 CodeLocal probe = PASS:** plugin ChatGPT Free đã cài, OAuth connected 16/09/2026, 14 tools load (agent/edit/git/terminal/browser/computer/workspace/context/verify...), Developer mode tồn tại trên Free. Cài `codelocal@1.5.87`, authorize workspace `ai-workflow-ac2fe45f3e`, runtime chạy (PID 15108). License GitHub = Apache-2.0 (npm UNLICENSED = lệch packaging).
+- **Bước 2:** repo git `D:\ai-workflow` init, root commit `c681269` (main), nhánh `wf/v1-5-setup`.
+- **Bước 3-4:** `wf/pipeline.mjs` — envelope WF:v1 (SEQ/SHA256 do script), parser chịu lỗi (bold/bullet/chip retry), **dry-run PASS 6/6 deterministic** (2 vòng giống hệt).
+- **Bước 5:** `wf/git-gate.ps1` (branch wf/* + allowlist + diff limit + secret scan) → commit `688cd72` GATE PASS. Parser fix 2 bug thật trong quá trình: split('=') 2 dấu, field bắt nhầm giữa dòng.
+- **Bước 6-7 (task thật T100):** envelope `HASH=8a0629e571b0eb3b SEQ=3` → relay opencode→ChatGPT (Playwright, zero copy) → reply 381 ký tự đúng 4 field → parse ok → verdict **UNCERTAIN** (ChatGPT đúng: tự nó không thể tự chốt hop của chính nó — cần human/gate chấm) → log event `claude_calls=0`.
+- **V1.5 gate:** dryrun PASS ✓, git gate PASS ✓, 1 task thật relay zero-copy ✓, Claude_calls=0 ✓, token ghi nhận ✓ → các bước 1-7 DONE. Còn bước 8-10 = human merge vào main + quyết định mở V2.
+- **Câu hỏi Playwright:** giữ nguyên — research 2026 không có gì tốt hơn cho hướng opencode→chat (browser-use quá nặng, Playwright MCP cùng engine, mcp-web-llm cũng dùng Playwright+CDP). Phân công mới: Playwright = đi ra, CodeLocal = đi vào.
 
 ## 2026-10-07 (vòng 2 — chỉ đạo 80/20)
 - Research: browser-use 117k★ (cắt), Playwright MCP (nền), **mcp-web-llm** (reference relay web-UI free), desktop-commander 8.8k★ (cắt — opencode có shell; ChatGPT connector đòi Developer mode), CodeLocal Project Brain (probe — license npm UNLICENSED vs GitHub Apache-2.0), model routing (Gemini=tool/long-context, Grok=2nd opinion, Claude=escalation vì quota ít).
 - 2 vòng thảo luận ChatGPT↔Claude → **V1.5 FINAL: ChatGPT chốt, Claude KÝ + điều kiện hard-stop 8h adapter → inbox/outbox fallback**. Điểm mốc: KHÔNG fork nguyên khối mcp-web-llm (đọc code tham khảo, tự viết adapter ~150 dòng), ask_all bị loại, Claude_calls=0 trong V1.5.
+- 2026-10-07T05:10:06.045Z | {"task":"T100","seq":3,"hash":"8a0629e571b0eb3b","relay":"opencode->chatgpt","verdict":"UNCERTAIN","parse":"ok 4/4 fields","reply_chars":381,"reply_hash":"12f45b4aa2f6bec5","claude_calls":0,"copy_manual":false}

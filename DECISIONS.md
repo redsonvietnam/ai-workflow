@@ -44,9 +44,11 @@ OUTPUT:
 Mock fixtures test parser/retry/chunking/git gate với 0 quota AI thật. Chạy thật chỉ sau dry-run deterministic pass. **Làm trước khi đụng DOM thật.**
 
 ## D6. Transport — tham khảo, không phát minh lại bánh xe (2026-10-07)
-- **KHÔNG fork nguyên khối** `mcp-web-llm` (dự án lạ, license chưa verify) — đọc code làm reference (selector/CDP re-login/session recovery), **tự viết adapter mỏng ~150 dòng** trên Playwright có sẵn của opencode. Fork = backup, chỉ nếu: pin commit hash + audit license/deps + profile trình duyệt RIÊNG (CDP chạm cookie).
-- browser-use (117k★) = cắt (dao mổ chặt cây); Playwright MCP = nền chuẩn sẵn có; desktop-commander = cắt (opencode đã có shell; ChatGPT connector còn đòi Developer mode).
-- CodeLocal: reference đã đọc — Project Brain (durable rules/decisions/experience), cloud chỉ giữ knowledge sanitize, npm có @playwright/cli, **npm registry ghi UNLICENSED vs Apache-2.0 GitHub → phải verify**. Trạng thái: PROBE.
+- **PROBE CodeLocal = PASS** (2026-10-07, test thật trên ChatGPT Free): plugin đã cài + OAuth connected (16/09/2026), **14 tools load được**: agent, edit (SHA-256), git (approval), terminal, browser (Playwright), computer, workspace (Project Brain remember/recall), context, verify, read, search, mcp, social, blog. Developer mode link tồn tại trên Free. Local runtime `codelocal@1.5.87` đã cài + workspace `ai-workflow` authorized + runtime chạy. → CodeLocal là executor chính (trạng thái: ACTIVE-EXECUTOR, giới hạn workspace D:\ai-workflow).
+- **Playwright GIỮ NGUYÊN** — research 2026 không có gì tốt hơn cho hướng opencode→chat: browser-use = dao mổ chặt cây; Playwright MCP = cùng engine bọc MCP; mcp-web-llm cũng dùng Playwright+CDP. Phân công: **Playwright (opencode) = hướng đi ra** (relay envelope); **CodeLocal browser/terminal = hướng vào** (ChatGPT thực thi local).
+- **KHÔNG fork nguyên khối** `mcp-web-llm` — đọc code làm reference (selector/CDP re-login/session recovery). Fork = backup, chỉ nếu: pin commit + audit license/deps + profile trình duyệt RIÊNG.
+- **License CodeLocal VERIFIED: Apache-2.0** (LICENSE trên GitHub codelocal-cloud/codelocal); npm registry ghi UNLICENSED là lệch packaging (package repo trỏ 0xmarkhydra/codelocal) — ghi nhận, không chặn.
+- browser-use (117k★) = cắt; desktop-commander = cắt (opencode đã có shell; Remote Desktop Commander plugin TỐN TẠI trên ChatGPT nhưng không cần).
 
 ## D7. Model routing (dùng Claude đúng lúc — quota free)
 | Việc | Model |
