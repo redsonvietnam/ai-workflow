@@ -1,0 +1,4 @@
+﻿VERDICT: PASS
+DELTA: Consensus Draft: (1) Lease + state machine + timeout/requeue - Spec: moi TASK co lease/state transition hop le; timeout thi auto-requeue an toan. Acceptance: stale worker khong duoc mutate sau lease expiry. Nguon: ca hai + Grok bo sung. (2) Acceptance-contract gate - Spec: moi execution phai co SPEC/acceptance criteria truoc khi CodeLocal chay. Acceptance: thieu contract thi BLOCKED, khong code. Nguon: ca hai. (3) Idempotent replay - Spec: inbox/outbox/proposal co idempotency key de replay khong tao side effect lap. Acceptance: replay cung input cho cung terminal result/effect. Nguon: ca hai. (4) Minimal observability hook - Spec: ghi state transition + hash cuoi vao CONTEXT/LOG de audit nhanh. Acceptance: moi terminal transition co evidence toi thieu va truy vet duoc. Nguon: Grok (bo sung), ChatGPT chap nhan.
+ACTION: Gui consensus draft 4 muc nay cho Claude danh gia.
+EVIDENCE: T112 + T112-grok-raw.md; W1.5/W2 PASS; T105/T108/T110; D8/D9/D10.

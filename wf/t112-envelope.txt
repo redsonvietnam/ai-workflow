@@ -1,0 +1,14 @@
+﻿[WF:v1]
+TASK: T112
+SEQ: 2
+ROLE: CHATGPT
+HASH: cee4fe2f44275e18
+OBJECTIVE: De xuat cai thien workflow (round 1 truoc phan bien voi Grok)
+CONTEXT_REF: DECISIONS.md + CONTEXT.md + LOG.md
+INPUT: Workflow da chay T100-T111: opencode dieu phoi (envelope WF:v1, hash/SEQ, verify doc lap, git-gate), ChatGPT-architect Think thiet ke spec, ChatGPT-executor code qua CodeLocal, Claude chi escalation, fallback file inbox/outbox, report.mjs accounting, D8/D9/D10, 6 nguyen tac V1.5 da chot.
+ASK: De xuat toi da 6 cai thien cho workflow. Moi muc gom: (a) van de hien tai cu the, (b) de xuat cai thien, (c) cost/risk, (d) uu tien cao/trung/thap. Chi thiet ke, khong code. OUTPUT 4 field VERDICT/DELTA/ACTION/EVIDENCE.
+OUTPUT:
+  VERDICT: PASS|FAIL|UNCERTAIN
+  DELTA: <new information only>
+  ACTION: <next concrete action>
+  EVIDENCE: <path/hash/test>
