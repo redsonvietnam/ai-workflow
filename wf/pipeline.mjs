@@ -186,6 +186,39 @@ export function reapStale(tasks, now = Date.now()) {
   return changed;
 }
 
+export function validateEnvelope(raw, schema) {
+  const clean = String(raw ?? '').replace(/^\uFEFF/, '');
+  const field = (name) => clean.match(new RegExp('(?:^|\\r?\\n)\\s*' + name + '\\s*:\\s*([^\\r\\n]+)', 'i'))?.[1]?.trim() ?? null;
+  const outputSection = clean.match(/OUTPUT:\r?\n([\s\S]*)$/)?.[1] ?? '';
+  const outField = (name) => outputSection.match(new RegExp('(?:^|\\r?\\n)\\s*' + name + '\\s*:\\s*([^\\r\\n]+)', 'i'))?.[1]?.trim() ?? null;
+  const obj = {
+    TASK: field('TASK'),
+    SEQ: field('SEQ') === null ? null : Number(field('SEQ')),
+    ROLE: field('ROLE'),
+    HASH: field('HASH'),
+    OBJECTIVE: field('OBJECTIVE'),
+    ASK: field('ASK'),
+    OUTPUT: { VERDICT: outField('VERDICT'), DELTA: outField('DELTA'), ACTION: outField('ACTION'), EVIDENCE: outField('EVIDENCE') },
+  };
+  const ctx = field('CONTEXT_REF');
+  if (ctx !== null) obj.CONTEXT_REF = ctx;
+  const inp = field('INPUT');
+  if (inp !== null) obj.INPUT = inp;
+  const errs = [];
+  const typeOf = (v) => Array.isArray(v) ? 'array' : v === null ? 'null' : typeof v;
+  const check = (val, sch, path) => {
+    if (sch.type && typeOf(val) !== sch.type) { errs.push(`${path}: expected ${sch.type}, got ${typeOf(val)}`); return; }
+    if (sch.type === 'number' && !Number.isFinite(val)) { errs.push(`${path}: expected finite number`); return; }
+    if (sch.type === 'object') {
+      for (const k of sch.required ?? []) if (!(k in (val ?? {}))) errs.push(`${path}.${k}: required`);
+      for (const [k, sub] of Object.entries(sch.properties ?? {})) if (k in (val ?? {})) check(val[k], sub, `${path}.${k}`);
+    }
+    if (sch.type === 'array') for (const item of val ?? []) check(item, sch.items ?? {}, `${path}[]`);
+  };
+  check(obj, schema, '$');
+  return { ok: errs.length === 0, errors: errs, envelope: obj };
+}
+
 function dryRun() {
   const expectedHash = 'abc123';
   const expectedSeq = 7;
@@ -261,6 +294,13 @@ if (cmd === 'make') {
   const gate = acceptanceGate(raw);
   console.log(JSON.stringify(gate, null, 2));
   if (!gate.ok) process.exit(3);
+} else if (cmd === 'validate') {
+  const file = args[0];
+  const raw = file === '-' ? readFileSync(0, 'utf8') : readFileSync(file, 'utf8');
+  const schema = JSON.parse(readFileSync(join(WF, 'wf-v1.schema.json'), 'utf8'));
+  const r = validateEnvelope(raw, schema);
+  console.log(JSON.stringify({ ok: r.ok, errors: r.errors }, null, 2));
+  if (!r.ok) process.exit(2);
 } else if (cmd === 'reap') {
   const st = loadState();
   st.tasks = st.tasks ?? {};

@@ -1,0 +1,28 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "WF:v1 envelope",
+  "type": "object",
+  "required": ["TASK", "SEQ", "ROLE", "HASH", "OBJECTIVE", "ASK", "OUTPUT"],
+  "properties": {
+    "TASK": { "type": "string" },
+    "SEQ": { "type": "number" },
+    "ROLE": { "type": "string" },
+    "HASH": { "type": "string" },
+    "OBJECTIVE": { "type": "string" },
+    "CONTEXT_REF": { "type": "string" },
+    "INPUT": { "type": "string" },
+    "ASK": { "type": "string" },
+    "CONSTRAINTS": { "type": "array", "items": { "type": "string" } },
+    "OUTPUT": {
+      "type": "object",
+      "required": ["VERDICT", "DELTA", "ACTION", "EVIDENCE"],
+      "properties": {
+        "VERDICT": { "type": "string" },
+        "DELTA": { "type": "string" },
+        "ACTION": { "type": "string" },
+        "EVIDENCE": { "type": "string" }
+      }
+    }
+  },
+  "additionalProperties": true
+}

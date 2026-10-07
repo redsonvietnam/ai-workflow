@@ -1,0 +1,14 @@
+﻿[WF:v1]
+TASK: T121
+SEQ: 2
+ROLE: CHATGPT
+HASH: 41bbf096720d1653
+OBJECTIVE: Phase 2a - Typed schema gate
+CONTEXT_REF: DECISIONS.md D11 + T120 spec
+INPUT: Spec T121: CODE wf/pipeline.mjs + wf/wf-v1.schema.json. Validate envelope ─æ├ú parse bß║▒ng JSON schema tr╞░ß╗¢c bß║Ñt kß╗│ xß╗¡ l├╜ n├áo; thiß║┐u field/sai kiß╗âu -> BLOCKED exit 2, kh├┤ng gß╗ìi executor. Hiß╗çn parse chß╗ë regex.
+ASK: Th├¬m schema JSON (bß║»t buß╗Öc TASK/SEQ/ROLE/HASH/OBJECTIVE/ASK/OUTPUT + kiß╗âu) + lß╗çnh validate hoß║╖c t├¡ch hß╗úp v├áo parse. Backward-compatible vß╗¢i envelope hß╗úp lß╗ç hiß╗çn tß║íi. Code qua CodeLocal, terminal block th├¼ b├ío. OUTPUT 4 field, tß╗æi ─æa 60 tß╗½.
+OUTPUT:
+  VERDICT: PASS|FAIL|UNCERTAIN
+  DELTA: <new information only>
+  ACTION: <next concrete action>
+  EVIDENCE: <path/hash/test>

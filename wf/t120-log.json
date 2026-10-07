@@ -1,0 +1,1 @@
+﻿{"task":"T120","seq":1,"hash":"2351175d683fb06c","relay":"opencode->chatgpt-architect","verdict":"PASS","purpose":"spec phase 2: T121 schema gate, T122 escalation budget, T123 hash-chain","claude_calls":0,"request":"T120 envelope spec phase 2","reply":"PASS 3 spec + exit code 2/3/4"}

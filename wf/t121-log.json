@@ -1,0 +1,1 @@
+﻿{"task":"T121","seq":2,"hash":"41bbf096720d1653","relay":"opencode->chatgpt-executor->BLOCKED->opencode-local","verdict":"PASS","executorVerdict":"UNCERTAIN x2","purpose":"T121 schema gate - wf-v1.schema.json + lenh validate exit 0/2","claude_calls":0,"request":"T121 envelope schema gate + retry","reply":"PASS 4 fixture + dryrun, fallback local"}

@@ -1,0 +1,14 @@
+﻿[WF:v1]
+TASK: T120
+SEQ: 1
+ROLE: CHATGPT
+HASH: 2351175d683fb06c
+OBJECTIVE: Phase 2 - spec cho 3 muc con lai cua council
+CONTEXT_REF: DECISIONS.md D11 (phase 2) + wf/t112-consensus.md
+INPUT: 3 muc phase 2 da duoc council luu: (a) Typed schema gate - validate envelope bang JSON schema truoc khi xu ly (hien parse chi regex), chan loi som; (b) Escalation/ enrollment policy - ngan sach claude_calls co kich ban (vi du toi da 1/task, 2/ngay), vuot thi block va yeu cau human; (c) Evidence hash-chain - manifest bam chuoi tung event trong LOG (moi event gan prevHash), phat hien sua doi log. Dieu kien D11: chua co dry-run chay that thi chua phai bang chung; moi muc phai co acceptance test.
+ASK: Thiet ke spec cho tung muc (a)(b)(c): mo ta ngan, file nao sua, acceptance test 1 dong, exit code/behavior cu the. Uu tien theo thu tu (a)->(b)->(c). OUTPUT 4 field VERDICT/DELTA/ACTION/EVIDENCE, toi da 300 tu.
+OUTPUT:
+  VERDICT: PASS|FAIL|UNCERTAIN
+  DELTA: <new information only>
+  ACTION: <next concrete action>
+  EVIDENCE: <path/hash/test>
