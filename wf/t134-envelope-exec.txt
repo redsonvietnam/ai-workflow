@@ -1,0 +1,24 @@
+[WF:v1]
+TASK: T134
+SEQ: 2
+ROLE: CHATGPT
+HASH: 01986245a7dc0dfa
+OBJECTIVE: T134 CODE — t134-pcm-constraints.md + test recompute hash
+CONTEXT_REF: wf/t134-spec.md (FROZEN f739504d…)
+INPUT: Nhiệm vụ: triển khai T134 theo spec đã freeze — ĐỌC wf/t134-spec.md (frozen sha256 f739504d7117377fe0b647ceec8c6995e1b7fa056683a98fdb3f8f8ddd98ca37) rồi CODE.
+
+CÔNG VIỆC (CodeLocal apply, đúng spec):
+1) Viết wf/t134-pcm-constraints.md theo format ID | source_file | pinned_commit/path | sha256 | excerpt(≤3 dòng) | mapping_T131 | mapping_T133 — 4 nhóm ràng buộc (canonical-state/stale, provenance/evidence, gate/no-self-approve, lifecycle/stop). Nguồn: skill local ff086e0c… + pcm@ee20500a docs/{PCM,PWF,CONFORMANCE}.md (hash tính lại từ nguồn thật, không đoán).
+2) Viết wf/test-t134.mjs: recompute 4 hash từ nguồn pinned (raw.githubusercontent pinned commit + file local) → khớp 4/4 PASS; có tamper check (1 byte → FAIL).
+3) Chạy: node wf/test-t134.mjs (kèm 2 lần cho idempotent).
+
+OUTPUT 4 field như mọi envelope.
+ASK: Apply code + chạy test. OUTPUT: VERDICT/DELTA/ACTION/EVIDENCE.
+CONSTRAINTS:
+- không sửa spec
+- không đổi exit 0-8
+OUTPUT:
+  VERDICT: PASS|FAIL|UNCERTAIN
+  DELTA: <new information only>
+  ACTION: <next concrete action>
+  EVIDENCE: <path/hash/test>

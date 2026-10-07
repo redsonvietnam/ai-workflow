@@ -1,0 +1,32 @@
+[WF:v1]
+TASK: T134
+SEQ: 1
+ROLE: CHATGPT
+HASH: 5ea366acf45d174b
+OBJECTIVE: T134 spec — trich chon loc rang buoc PCM, neo hash nguon, test recompute
+CONTEXT_REF: wf/t130-consensus.md (mục T134) + skill pcm-pwf local + repo pcm @ee20500a
+INPUT: Nhiệm vụ: ra SPEC cho T134 — trích chọn lọc ràng buộc PCM, neo hash nguồn (consensus T130: KHÔNG audit 42 test trọn).
+
+NGUỒN (đã xác minh tồn tại):
+1) Skill local: C:\Users\Fesdinang\.config\opencode\skills\pcm-pwf\SKILL.md (2490 bytes, sha256 ff086e0c39ae26645e875b1460f626503e39b78ccb4bc4f97b7cf0679a1aa442).
+2) Repo pcm @ HEAD ee20500ab4b4334b45e4c3fbbe6a38a75fb35597: docs/PCM.md, docs/PWF.md, docs/CONFORMANCE.md (raw.githubusercontent.com/redsonvietnam/pcm/ee20500a…/docs/<file>).
+
+ĐẦU RA: wf/t134-pcm-constraints.md — mỗi ràng buộc = (id, nguồn: file + sha256 + đoạn trích nguyên văn ≤3 dòng, ánh xạ: ràng buộc này ép cái gì trong T131 stale-check/apply và T133 dispute/BLOCKED/DEAD_LETTER). CHỈ trích cái mà T131/T133 thật sự cần (vd: observe state trước task, stale assumptions, evidence provenance, stop-for-gate/self-approve cấm, task lifecycle, canonical state check).
+
+YÊU CẦU SPEC (bạn quyết định):
+1) Danh mục file nguồn + cách neo hash (pinned commit, không "main").
+2) Format bảng/các mục của t134-pcm-constraints.md (đủ để máy verify lại được).
+3) Test acceptance: wf/test-t134.mjs — tải/lấy lại nguồn, recompute sha256, khớp toàn bộ → PASS; lệch 1 byte → FAIL (đúng tinh thần neo hash).
+4) Không đổi code pipeline (T131/T133 đã merge), không đổi exit 0-8.
+
+ACCEPTANCE: test-t134 PASS; mọi hash trong doc recompute được; tiếng Việt có dấu.
+ASK: Ra spec T134 theo 4 mục. OUTPUT 4 field; DELTA ≤150 từ.
+CONSTRAINTS:
+- tiếng Việt có dấu
+- KHÔNG audit 42 test trọn
+- chỉ trích ràng buộc T131/T133 cần
+OUTPUT:
+  VERDICT: PASS|FAIL|UNCERTAIN
+  DELTA: <new information only>
+  ACTION: <next concrete action>
+  EVIDENCE: <path/hash/test>

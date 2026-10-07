@@ -1,0 +1,16 @@
+{
+  "task": "T134",
+  "purpose": "trich rang buoc PCM + neo hash nguon cho T131/T133",
+  "seq1": {
+    "hash": "5ea366acf45d174b",
+    "seq": 1,
+    "to": "CHATGPT-architect"
+  },
+  "seq2": {
+    "hash": "01986245a7dc0dfa",
+    "seq": 2,
+    "to": "CHATGPT-executor",
+    "verdict": "UNCERTAIN",
+    "reason": "CodeLocal blocked lan 4 (streak) -> fallback local"
+  }
+}
