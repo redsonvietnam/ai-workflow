@@ -42,6 +42,44 @@ export function lastEventHash() {
   }
   return null;
 }
+export function bundleCreate(task, paths) {
+  const dir = join(WF, 'bundles', task);
+  mkdirSync(dir, { recursive: true });
+  const files = [];
+  const lines = [];
+  for (const p of paths) {
+    const h = sha256(readFileSync(join(ROOT, p)));
+    files.push({ path: p, sha256: h });
+    lines.push(`${h}  ${p}`);
+  }
+  const sums = lines.join('\n') + '\n';
+  writeFileSync(join(dir, 'SHA256SUMS'), sums);
+  const st = loadState();
+  const gitCommit = spawnSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8', cwd: ROOT }).stdout?.trim() ?? null;
+  const provenance = { taskId: task, attemptId: st.tasks?.[task]?.attempts ?? 0, createdAt: new Date().toISOString(), gitCommit, files, anchor: sha256(sums) };
+  writeFileSync(join(dir, 'provenance.json'), JSON.stringify(provenance, null, 2) + '\n');
+  return provenance;
+}
+export function bundleCheck(task) {
+  const dir = join(WF, 'bundles', task);
+  const sumsPath = join(dir, 'SHA256SUMS');
+  const provPath = join(dir, 'provenance.json');
+  if (!existsSync(sumsPath) || !existsSync(provPath)) return { ok: false, errors: [{ path: dir, reason: 'BUNDLE_MISSING' }] };
+  const errors = [];
+  const sums = readFileSync(sumsPath, 'utf8');
+  let prov = null;
+  try { prov = JSON.parse(readFileSync(provPath, 'utf8')); } catch { prov = null; }
+  if (!prov || !prov.anchor) return { ok: false, errors: [{ path: 'provenance.json', reason: 'MALFORMED' }] };
+  if (prov.anchor !== sha256(sums)) errors.push({ path: 'SHA256SUMS', reason: 'ANCHOR_MISMATCH' });
+  for (const line of sums.split(/\r?\n/).filter(Boolean)) {
+    const m = line.match(/^([0-9a-f]{64})\s+(.+)$/);
+    if (!m) { errors.push({ path: line, reason: 'SUMS_MALFORMED' }); continue; }
+    const [, h, p] = m;
+    try { if (sha256(readFileSync(join(ROOT, p))) !== h) errors.push({ path: p, reason: 'HASH_MISMATCH' }); }
+    catch { errors.push({ path: p, reason: 'MISSING' }); }
+  }
+  return { ok: errors.length === 0, errors };
+}
 export function verifyChain(logText) {
   const checked = [];
   const legacy = [];
@@ -406,6 +444,15 @@ if (cmd === 'make') {
   const gate = acceptanceGate(raw);
   console.log(JSON.stringify(gate, null, 2));
   if (!gate.ok) process.exit(gate.reason === 'PREREG_MISMATCH' ? 5 : gate.reason === 'FAIL_CLOSED' ? 6 : gate.reason === 'INDEPENDENT_FAIL' ? 1 : 3);
+} else if (cmd === 'bundle') {
+  const task = args[0];
+  const files = args.slice(1);
+  if (!task || !files.length) { console.error('usage: bundle <task> <file...>'); process.exit(2); }
+  console.log(JSON.stringify(bundleCreate(task, files), null, 2));
+} else if (cmd === 'bundle-check') {
+  const r = bundleCheck(args[0] ?? '');
+  console.log(JSON.stringify(r, null, 2));
+  if (!r.ok) process.exit(7);
 } else if (cmd === 'standalone') {
   const file = args[0];
   if (!file || !existsSync(file)) {

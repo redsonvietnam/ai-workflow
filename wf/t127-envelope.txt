@@ -1,0 +1,14 @@
+[WF:v1]
+TASK: T127
+SEQ: 2
+ROLE: CHATGPT
+HASH: 370384b4f1a892f5
+OBJECTIVE: Evidence bundle — SHA256SUMS + provenance neo git commit
+CONTEXT_REF: wf/t124-consensus.md + DECISIONS.md D12
+INPUT: Consensus T124-T127: chuẩn hóa SHA256SUMS + provenance cho input/raw/output/evidence, gộp với hash-chain C4 (eventHash đã có trong LOG), neo commit/tag git, anchor hash nằm NGOÀI bundle; gắn task_id/attempt_id ngay (lease-id hoãn T129). Đề xuất cấu trúc: wf/bundles/<task>/ = SHA256SUMS (dòng 'sha256  path') + provenance.json {taskId, attemptId, createdAt, gitCommit, files:[{path, sha256}], anchor: sha256 của SHA256SUMS}. CLI: 'bundle <task> <files...>' sinh bundle (tự đọc git rev-parse HEAD); 'bundle-check <task>' recompute, sai/thiếu → bảng kê + exit 7 (reserved). Anchor xác minh: hash SHA256SUMS phải khớp provenance.anchor; sửa 1 file trong bundle → FAIL.
+ASK: Code qua CodeLocal (không đọc trước, write đầy đủ mỗi file): CLI bundle/bundle-check trong pipeline.mjs, exit 7. Backward-compatible. Test: bundle 3 file → check PASS exit 0; sửa 1 byte → exit 7; sửa anchor trong provenance → exit 7. OUTPUT 4 field, tối đa 60 từ.
+OUTPUT:
+  VERDICT: PASS|FAIL|UNCERTAIN
+  DELTA: <new information only>
+  ACTION: <next concrete action>
+  EVIDENCE: <path/hash/test>
