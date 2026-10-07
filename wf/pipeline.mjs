@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 // WF:v1 pipeline — HASH/SEQ do script tính, KHÔNG nhờ model.
 import { createHash } from 'node:crypto';
+import { spawnSync } from 'node:child_process';
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -254,6 +255,15 @@ export function acceptanceGate(raw) {
   const checks = { command: commandOk, allowlist: allowlistOk, redTest: redTestOk, specLock };
   const prereg = preregCheck();
   if (!prereg.ok) return { ok: false, checks, reason: 'PREREG_MISMATCH', prereg };
+  const vf = join(WF, 'verdict-' + (field('TASK') ?? 'UNKNOWN') + '.json');
+  if (existsSync(vf)) {
+    let v = null;
+    try { v = JSON.parse(readFileSync(vf, 'utf8')); } catch { v = null; }
+    if (!v || !v.task || !v.verdict || !v.reason) {
+      return { ok: false, checks, reason: 'FAIL_CLOSED', prereg, verdictFile: vf };
+    }
+    return { ok: v.verdict === 'PASS', checks, reason: v.verdict === 'PASS' ? null : 'INDEPENDENT_FAIL', prereg, verdict: v };
+  }
   return { ok: Object.values(checks).every(Boolean), checks, reason: Object.values(checks).every(Boolean) ? null : 'ACCEPTANCE_CONTRACT_BLOCKED', prereg };
 }
 
@@ -395,7 +405,29 @@ if (cmd === 'make') {
   const raw = file === '-' ? readFileSync(0, 'utf8') : readFileSync(file, 'utf8');
   const gate = acceptanceGate(raw);
   console.log(JSON.stringify(gate, null, 2));
-  if (!gate.ok) process.exit(gate.reason === 'PREREG_MISMATCH' ? 5 : 3);
+  if (!gate.ok) process.exit(gate.reason === 'PREREG_MISMATCH' ? 5 : gate.reason === 'FAIL_CLOSED' ? 6 : gate.reason === 'INDEPENDENT_FAIL' ? 1 : 3);
+} else if (cmd === 'standalone') {
+  const file = args[0];
+  if (!file || !existsSync(file)) {
+    console.log(JSON.stringify({ reason: 'FAIL_CLOSED', detail: 'envelope file missing' }, null, 2));
+    process.exit(6);
+  }
+  const envText = readFileSync(file, 'utf8');
+  const task = envText.match(/(?:^|\n)TASK: (\S+)/)?.[1] ?? 'UNKNOWN';
+  const vf = join(WF, `verdict-${task}.json`);
+  spawnSync(process.execPath, [join(WF, 'verify-standalone.mjs'), file], { encoding: 'utf8', timeout: 30000 });
+  if (!existsSync(vf)) {
+    console.log(JSON.stringify({ reason: 'FAIL_CLOSED', detail: 'verdict file missing' }, null, 2));
+    process.exit(6);
+  }
+  let v = null;
+  try { v = JSON.parse(readFileSync(vf, 'utf8')); } catch { v = null; }
+  if (!v || !v.task || !v.verdict || !v.reason) {
+    console.log(JSON.stringify({ reason: 'FAIL_CLOSED', detail: 'verdict malformed' }, null, 2));
+    process.exit(6);
+  }
+  console.log(JSON.stringify(v, null, 2));
+  if (v.verdict !== 'PASS') process.exit(1);
 } else if (cmd === 'prereg') {
   const sub = args[0];
   if (sub === 'freeze') {

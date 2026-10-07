@@ -1,0 +1,14 @@
+﻿[WF:v1]
+TASK: T126
+SEQ: 2
+ROLE: CHATGPT
+HASH: 0d193ee8be9f3a19
+OBJECTIVE: Independent verifier ΓÇö process ─æß╗Öc lß║¡p, FAIL-CLOSED
+CONTEXT_REF: wf/t124-consensus.md + DECISIONS.md D12
+INPUT: Consensus T124-T126 (╞░u ti├¬n cao nhß║Ñt): verifier ─æß╗Öc lß║¡p vß╗¢i orchestrator: script ri├¬ng wf/verify-standalone.mjs chß║íy process ri├¬ng (node wf/verify-standalone.mjs <envelope>), ─æß╗ìc LOG/dß╗» liß╗çu v├áo, ghi verdict ra file ri├¬ng wf/verdict-<task>.json {task, verdict, reason, checkedAt}; orchestrator/gate CHß╗ê ─Éß╗îC file ─æ├│ (kh├┤ng t├¡nh lß║íi). FAIL-CLOSED: file thiß║┐u/sai format/thiß║┐u field ΓåÆ coi l├á FAIL (kh├┤ng bß╗Å qua), exit 6 (reserved). Khi executor kh├┤ng trß║ú VERDICT hoß║╖c VERDICT thiß║┐u field ΓåÆ FAIL_CLOSED. Gate bß║»t buß╗Öc 2 fixture: fixture ─æ├║ng (envelope hß╗úp lß╗ç) ΓåÆ PASS; fixture cß╗æ t├¼nh sai (hash sai) ΓåÆ FAIL. Opencode vß║½n kiß╗âm tra reply-side HASH ri├¬ng (D9). Hiß╗çn verifyReply/decideVerdict ─æang in-process.
+ASK: Code qua CodeLocal (kh├┤ng ─æß╗ìc tr╞░ß╗¢c): t├ích verifier ra wf/verify-standalone.mjs + CLI 'standalone <envelope-file>' trong pipeline.mjs gß╗ìi n├│ bß║▒ng child process, ─æß╗ìc verdict file; acceptanceGate ─æß╗ìc verdict file nß║┐u c├│ (thiß║┐u = FAIL_CLOSED exit 6). Backward-compatible. OUTPUT 4 field, tß╗æi ─æa 60 tß╗½.
+OUTPUT:
+  VERDICT: PASS|FAIL|UNCERTAIN
+  DELTA: <new information only>
+  ACTION: <next concrete action>
+  EVIDENCE: <path/hash/test>
