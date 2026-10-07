@@ -1,0 +1,31 @@
+[WF:v1]
+TASK: T131
+SEQ: 1
+ROLE: CHATGPT
+HASH: 241d1b15325050f0
+OBJECTIVE: T131 spec — stale-check nguyên tử trước APPLY (revalidate sha256 + lock + atomic rename + git-gate revalidate)
+CONTEXT_REF: wf/t130-consensus.md (mục T131) + ai-coding-core orchestrator-adapter-contract v1.1
+INPUT: Nhiệm vụ: ra SPEC cho T131 (Stale-check trước APPLY) — implementation sẽ do CodeLocal (fallback local) làm, bạn chỉ spec + acceptance.
+
+NGỮNH CẢNH (consensus T130): lỗi stale-hash THẬT của CodeLocal từng xảy ra; ai-coding-core lock contract: expected_state {head_sha + worktree_fingerprint + changed_paths} revalidate trước APPLY, stale → reject, không auto-rebase. Race window: giữa "check" và "apply" file có thể bị sửa (Grok bổ sung: phải NGUYÊN TỬ).
+
+YÊU CẦU SPEC (bạn quyết định chi tiết CLI, tôi gợi ý khung):
+1) Lệnh mới trong wf/pipeline.mjs: `apply <plan.json>` — plan = danh sách file {path, before_sha256 (null = chưa tồn tại), content base64 hoặc contentPath}.
+2) Chu trình: acquire lock (wf/.apply.lock, create-exclusive 'wx') → revalidate TẤT CẢ before_sha256 với file hiện tại → nếu lệch → STALE_REJECT (exit 8, không ghi gì) → ghi file bằng temp+rename (atomic, cùng thư mục) → release lock.
+3) Tích hợp vào git-gate.ps1: ở đầu gate capture HEAD + hash các file staged; NGAY TRƯỚC khi `git commit` revalidate lại (HEAD chưa đổi, staged blob chưa đổi) → lệch → GATE FAIL (không commit).
+4) Test fixtures (test-apply.mjs, chạy node được): (a) apply hợp lệ → PASS, file đúng nội dung; (b) TÁI HIỆN stale: tạo plan theo hash H của file X, sửa X (mô phỏng CodeLocal race), apply với H → exit 8 STALE_REJECT; (c) lock đang bị giữ → apply thứ 2 bị từ chối; (d) atomic: không bao giờ file nửa vời (ghi temp rồi rename).
+5) Exit code 8 = STALE/LOCK (reserved mới, không đụng 2-7).
+
+ACCEPTANCE (tự chấm được): đủ 4 fixture PASS; sửa file giữa check và apply → reject; không force, không ghi đè khi stale; test chạy lại được (idempotent, dọn file tạm sau test).
+
+OUTPUT: 4 field, DELTA ≤150 từ (spec CLI dạng danh sách ngắn — opencode ghi thành wf/t131-spec.md rồi freeze), ACTION nêu bước tiếp.
+ASK: Ra spec T131 theo 5 mục + acceptance fixtures. OUTPUT 4 field; DELTA ≤150 từ.
+CONSTRAINTS:
+- tiếng Việt có dấu
+- chỉ spec — chưa code
+- exit 8 reserved cho STALE/LOCK
+OUTPUT:
+  VERDICT: PASS|FAIL|UNCERTAIN
+  DELTA: <new information only>
+  ACTION: <next concrete action>
+  EVIDENCE: <path/hash/test>

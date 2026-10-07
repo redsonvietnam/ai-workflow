@@ -1,0 +1,27 @@
+[WF:v1]
+TASK: T131
+SEQ: 2
+ROLE: EXECUTOR
+HASH: 513be80562f8ea32
+OBJECTIVE: T131 executor — code apply + git-gate revalidate + 4 fixture PASS
+CONTEXT_REF: wf/t131-spec.md (FROZEN 4f06184a...)
+INPUT: SPEC ĐÃ FROZEN: wf/t131-spec.md, sha256=4f06184acb78c545d609e254d799bb0d0c555341beac12e97ba71506fba4fb2d, freeze TRƯỚC lượt này. Đọc spec trong repo D:\ai-workflow — không sửa spec; thấy spec sai → dừng, VERDICT UNCERTAIN.
+
+NHIỆM VỤ (triển khai T131):
+1) Thêm lệnh `apply <plan.json>` vào wf/pipeline.mjs theo đúng spec mục 1-2 (lock wx, revalidate toàn bộ, STALE_REJECT exit 8, temp+rename atomic, cleanup mọi nhánh, canonicalize path chặn traversal).
+2) Sửa wf/git-gate.ps1 theo mục 3: capture HEAD + staged blob snapshot đầu gate; revalidate ngay trước commit → lệch → GATE FAIL.
+3) Viết wf/test-apply.mjs đủ 4 fixture (hợp lệ / stale race exit 8 / held-lock exit 8 / atomic), tự tạo+dọn fixture, chạy lặp được.
+4) CHẠY test: node wf/test-apply.mjs → phải đủ 4 PASS; chạy lại lần 2 cũng PASS (idempotent). Git-gate regression: đọc lại git-gate.ps1 cho chắc logic HEAD/blob revalidate đúng — commit thật kế tiếp (qua gate) sẽ tự chứng minh gate thường vẫn PASS.
+
+QUY TẮC: exit 8 chỉ cho STALE/LOCK; không đổi mã 0-7; không mở scope ngoài T131; TIẾNG VIỆT có dấu trong comment/nhãn. Nếu CodeLocal write bị chặn → báo UNCERTAIN (opencode sẽ fallback local).
+ASK: Sau khi code: chạy node wf/test-apply.mjs, báo kết quả từng fixture. OUTPUT 4 field: VERDICT, DELTA (phát hiện kỹ thuật khi code), ACTION, EVIDENCE (file + dòng + kết quả test). DELTA ≤150 từ.
+CONSTRAINTS:
+- tiếng Việt có dấu
+- exit 8 reserved STALE/LOCK
+- không sửa spec frozen
+- không mở scope
+OUTPUT:
+  VERDICT: PASS|FAIL|UNCERTAIN
+  DELTA: <new information only>
+  ACTION: <next concrete action>
+  EVIDENCE: <path/hash/test>

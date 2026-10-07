@@ -1,0 +1,22 @@
+[WF:v1]
+TASK: T131
+SEQ: 3
+ROLE: EXECUTOR
+HASH: 38f32c6878d2ba6b
+OBJECTIVE: T131 executor retry lần 2 — CodeLocal routable path, nếu fail lần nữa → UNCERTAIN cho fallback local
+CONTEXT_REF: wf/t131-spec.md (FROZEN 4f06184a...) + SEQ2 UNCERTAIN
+INPUT: Lỗi SEQ2: "patch does not contain a routable workspace path". RETRY lần 2 với cách khác:
+- Workspace key đã đúng (ai-workflow-ac2fe45f3e). Khi tạo patch, dùng ĐƯỜNG DẪN TUYẾT ĐỐI bắt đầu bằng D:\ai-workflow\ (vd D:\ai-workflow\wf\test-apply.mjs) thay vì đường dẫn tương đối.
+- Nếu tool có bước chọn file/terminal: chọn workspace trước, rồi edit.
+- Vẫn đúng spec wf/t131-spec.md, vẫn 4 fixture + chạy node wf/test-apply.mjs.
+- ĐÂY LÀ LẦN THỨ 2 (quy tắc: fail ≥2 lần liên tiếp → opencode fallback local). Nếu lần này vẫn chặn → báo UNCERTAIN ngay, KHÔNG thử thêm lần 3, không code lòng vòng.
+ASK: Thử lại CodeLocal với path tuyệt đối. OUTPUT 4 field; DELTA ≤150 từ; EVIDENCE ghi rõ patch/terminal thành hay bại.
+CONSTRAINTS:
+- tiếng Việt có dấu
+- không sửa spec frozen
+- fail lần 2 → UNCERTAIN ngay
+OUTPUT:
+  VERDICT: PASS|FAIL|UNCERTAIN
+  DELTA: <new information only>
+  ACTION: <next concrete action>
+  EVIDENCE: <path/hash/test>

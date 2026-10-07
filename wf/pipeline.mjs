@@ -2,8 +2,8 @@
 // WF:v1 pipeline — HASH/SEQ do script tính, KHÔNG nhờ model.
 import { createHash } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
-import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { readFileSync, writeFileSync, mkdirSync, existsSync, openSync, closeSync, unlinkSync, renameSync } from 'node:fs';
+import { dirname, join, resolve, sep, isAbsolute, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -494,6 +494,64 @@ if (cmd === 'make') {
     console.error('usage: prereg freeze <file...> | prereg check');
     process.exit(2);
   }
+} else if (cmd === 'apply') {
+  // T131: stale-check nguyên tử trước APPLY — lock wx → revalidate toàn bộ → temp+rename.
+  const planPath = args[0];
+  const bail = (reason, extra = {}, code = 2) => { console.log(JSON.stringify({ ok: false, reason, ...extra }, null, 2)); process.exit(code); };
+  if (!planPath) bail('NO_PLAN');
+  let plan;
+  try { plan = JSON.parse(readFileSync(planPath, 'utf8')); } catch { bail('PLAN_MALFORMED'); }
+  const entries = Array.isArray(plan) ? plan : plan.files;
+  if (!Array.isArray(entries) || entries.length === 0) bail('PLAN_EMPTY');
+  const allowRel = (rel) => rel.split(sep).join('/').startsWith('wf/') || /^(CONTEXT|DECISIONS|LOG)\.md$/.test(rel) || /^\.git(ignore|attributes)$/.test(rel);
+  const resolved = [];
+  for (const e of entries) {
+    if (!e || typeof e.path !== 'string' || e.path.length === 0) bail('ENTRY_INVALID', { entry: e });
+    if (e.before_sha256 !== null && !(typeof e.before_sha256 === 'string' && /^[0-9a-f]{64}$/.test(e.before_sha256))) bail('ENTRY_INVALID', { entry: e });
+    const abs = isAbsolute(e.path) ? resolve(e.path) : resolve(ROOT, e.path);
+    if (!abs.startsWith(ROOT + sep)) bail('TRAVERSAL', { path: e.path });
+    const rel = relative(ROOT, abs);
+    if (!allowRel(rel)) bail('NOT_ALLOWED', { rel });
+    let content = null;
+    if (typeof e.content === 'string') content = e.content;
+    else if (typeof e.contentPath === 'string') {
+      try { content = readFileSync(resolve(ROOT, e.contentPath), 'utf8'); } catch { bail('CONTENT_UNREADABLE', { path: e.contentPath }); }
+    } else bail('ENTRY_NO_CONTENT', { entry: e });
+    resolved.push({ abs, rel, before: e.before_sha256, content });
+  }
+  const LOCK = join(WF, '.apply.lock');
+  let fd = null;
+  try { fd = openSync(LOCK, 'wx'); } catch { bail('LOCKED', { lock: LOCK }, 8); }
+  const temps = [];
+  let result, exitCode = 0;
+  try {
+    const stale = [];
+    for (const e of resolved) {
+      const cur = existsSync(e.abs) ? createHash('sha256').update(readFileSync(e.abs)).digest('hex') : null;
+      if (cur !== e.before) stale.push({ path: e.rel, expected: e.before, actual: cur });
+    }
+    if (stale.length) { result = { ok: false, reason: 'STALE_REJECT', stale }; exitCode = 8; }
+    else {
+      const written = [];
+      for (const e of resolved) {
+        const tmp = e.abs + '.tmp-apply-' + process.pid;
+        temps.push(tmp);
+        writeFileSync(tmp, e.content, 'utf8');
+        renameSync(tmp, e.abs);
+        temps.splice(temps.indexOf(tmp), 1);
+        written.push(e.rel);
+      }
+      result = { ok: true, written };
+    }
+  } catch (err) {
+    result = { ok: false, reason: 'APPLY_ERROR', message: String(err && err.message || err) }; exitCode = 8;
+  } finally {
+    for (const t of temps) { try { if (existsSync(t)) unlinkSync(t); } catch { /* bỏ qua */ } }
+    try { if (fd !== null) closeSync(fd); } catch { /* bỏ qua */ }
+    try { if (existsSync(LOCK)) unlinkSync(LOCK); } catch { /* bỏ qua */ }
+  }
+  console.log(JSON.stringify(result, null, 2));
+  process.exit(exitCode);
 } else if (cmd === 'validate') {
   const file = args[0];
   const raw = file === '-' ? readFileSync(0, 'utf8') : readFileSync(file, 'utf8');

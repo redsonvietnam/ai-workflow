@@ -1,8 +1,8 @@
 {
   "taskId": "T135",
   "attemptId": 0,
-  "createdAt": "2026-10-07T21:24:33.775Z",
-  "gitCommit": "42cc3729d07241bad0f516e52e395a409f8de56b",
+  "createdAt": "2026-10-07T21:40:29.485Z",
+  "gitCommit": "fc4d9431e7181076e6d81216dcb17447fa101949",
   "files": [
     {
       "path": "wf/t135-spec.md",
@@ -46,12 +46,12 @@
     },
     {
       "path": "wf/prereg-manifest.json",
-      "sha256": "d1d401a9d11c8d089e86a61a84c5e16d922fd6e8cc91262671ead8d573d7a807"
+      "sha256": "30b8ad6279a00a76d4c022f83d587bda32401e846bd9381940ba69d695a713dc"
     },
     {
       "path": "wf/verdict-T135.json",
       "sha256": "f92986dd46877f238820efca9e68237c02250b70feb7a23ef473b3f5573f2cb8"
     }
   ],
-  "anchor": "fad64a2fdcd9430bb0a317869a936e91765431153aa3c822f46b9e62b1187077"
+  "anchor": "aa3363fab1a301b980a07fa0e31edb46b1d11283e6f6e2a8631f2b971b9188df"
 }

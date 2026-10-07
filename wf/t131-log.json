@@ -1,0 +1,19 @@
+{
+  "task": "T131",
+  "purpose": "stale-check truoc APPLY - revalidate nguyen tu + git-gate revalidate, exit 8",
+  "seq1": {
+    "hash": "241d1b15325050f0",
+    "seq": 1,
+    "to": "CHATGPT-architect"
+  },
+  "seq2": {
+    "hash": "513be80562f8ea32",
+    "seq": 2,
+    "to": "CHATGPT-executor"
+  },
+  "seq3": {
+    "hash": "38f32c6878d2ba6b",
+    "seq": 3,
+    "to": "CHATGPT-executor-retry"
+  }
+}
