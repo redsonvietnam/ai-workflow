@@ -83,3 +83,8 @@ Mock fixtures test parser/retry/chunking/git gate với 0 quota AI thật. Chạ
 - **Dieu kien bo (schema mismatch gateway/plugin):** gateway nextAction yeu cau workspace(action=execution) nhung OpenAI manifest/plugin schema v15 khong co (Refresh khong doi gi, npm 1.5.87 da latest). Goi trim-enum van di qua. Neu mismatch lap >2 lan/tuan HOAC 1 lan mat du lieu -> pin phien ban plugin, hoac bo gateway nay (Claude goi y T103).
 - **V2-TC1 (T103) PASS:** escalation opencode->Claude tron ven, parse 4/4, claude_calls=1. Gop y cua Claude (ghi nhan, chua harden): (a) opencode phai SO KHOP reply-side HASH, khong tin echo cua model; (b) VERDICT chi la khuyen nghi, PASS that do gate code quyet (implement hien tai da nhu vay); (c) HASH/SEQ do script tinh la nguon duy nhat.
 - **Gate V2:** T100 relay PASS (zero copy), T101 read PASS, T102 write PASS, T103 claude_calls=1 <= 1. Con lai: harden reply-side HASH check + nang gate tu VERDICT-thanh-ky-len-thanh-so.
+
+## D10. CodeLocal vo hieu hoa nut Think tren cung tab (2026-10-07)
+- **Hien tuong:** tab1 (thread architect cu da ket noi CodeLocal plugin) - nut Think co mat nhung khong toggle duoc qua automation (click/key/React handler deu chay nhung aria-pressed luon false); tab0 (thread moi, sach CodeLocal) toggle binh thuong ngay lan click dau. Nghi ban: trang thai plugin/session tren tab do trien nut Think.
+- **Giai quyet:** architect chuyen sang thread moi https://chatgpt.com/c/6ac64508-3590-83ec-805b-bfff5af66840 (T111 bootstrap PASS, Think ON). Thread cu 6ac5cc72 = archive. Context khong mat vi he thong record luon o local (CONTEXT.md, DECISIONS.md, LOG.md, wf/*).
+- **Quy tac cho sau:** giu tab architect SACH CodeLocal; chi tab executor/riser gan plugin. Neu Think lai tat -> suspect CodeLocal truoc.

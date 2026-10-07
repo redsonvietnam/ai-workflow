@@ -31,13 +31,14 @@ HUMAN → scope/gate
 - Session exam mobifone: đã logout (task thi đã xong — xem LOG.md mục Exam).
 
 ## Liên hệ nhanh
-- **ChatGPT-architect** (context hub, tab1): https://chatgpt.com/c/6ac5cc72-166c-83ec-adba-0c647ab76511
+- **ChatGPT-architect** (context hub, tab0 — Think ON): https://chatgpt.com/c/6ac64508-3590-83ec-805b-bfff5af66840
+- **ChatGPT-architect cũ** (archive — CodeLocal đã vô hiệu hóa Think trên tab này, T111 bootstrap sang thread mới): https://chatgpt.com/c/6ac5cc72-166c-83ec-adba-0c647ab76511
 - **ChatGPT-executor** (thực thi qua CodeLocal, tab3): https://chatgpt.com/c/6ac63252-3d5c-83ec-8216-b07878332525
 - **Claude** (escalation thật sự cần, tab2): https://claude.ai/chat/543d7115-27b3-48ce-a190-f42bb4d66e0d
 - Gemini/Grok = dự phòng khi ChatGPT hết quota (chưa kết nối).
 
 ## Phân vai (2026-10-07, user chỉ đạo)
 - **opencode**: điều phối/thuyển thư — sinh envelope, hash/SEQ, verify độc lập, gate commit. Ít làm việc trực tiếp.
-- **ChatGPT-architect**: thiết kế spec (tab1, đã có context V1.5/V2).
+- **ChatGPT-architect**: thiết kế spec (tab0, Think ON, bootstrap T111 PASS; context đầy đủ lưu local).
 - **ChatGPT-executor**: nhận spec, code qua CodeLocal edit, tự chạy dry-run (tab3, thread mới mỗi task lớn).
 - **Claude**: chỉ khi architect UNCERTAIN/block thật sự (tiết kiệm quota). Gemini/Grok: thay thế lúc ChatGPT kẹt.

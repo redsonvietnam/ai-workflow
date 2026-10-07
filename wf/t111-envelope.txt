@@ -1,0 +1,14 @@
+﻿[WF:v1]
+TASK: T111
+SEQ: 1
+ROLE: CHATGPT
+HASH: e158bcb827009d78
+OBJECTIVE: Bootstrap: ban quyen architect cho thread moi
+CONTEXT_REF: DECISIONS.md
+INPUT: Day la thread ARCHISTRICT moi (thread cu 6ac5cc72 bi CodeLocal vo hieu hoa Think; context cu da luu local D:\ai-workflow). Tom tat: V1.5 da chot (ChatGPT chot, Claude ky, D8 checklist DONE); V2 test PASS (T101 read, T102 write executionMode=live, T103 escalation claude_calls=1); da harden verifyReply+decideVerdict+byte accounting (T105), report.mjs (T108), CLI parse verify+gate (T110). Flow: opencode sinh envelope WF:v1 (TASK/SEQ/ROLE/HASH) -> ban thiet ke SPEC cho executor tab khac code qua CodeLocal -> opencode verify doc lap + git-gate. Ban = ARCHITECT: chi thiet ke, khong code.
+ASK: Xac nhan vai tro architect bang 4 field: VERDICT PASS neu hieu, DELTA = 3 diem ban nho ve context, ACTION = san sang nhan spec, EVIDENCE = ten file context local. Toi da 60 tu.
+OUTPUT:
+  VERDICT: PASS|FAIL|UNCERTAIN
+  DELTA: <new information only>
+  ACTION: <next concrete action>
+  EVIDENCE: <path/hash/test>
