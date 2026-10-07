@@ -1,0 +1,14 @@
+﻿[WF:v1]
+TASK: T109
+SEQ: 1
+ROLE: CHATGPT
+HASH: 994ffeee7ba69739
+OBJECTIVE: Design spec: noi verifyReply+decideVerdict vao CLI parse
+CONTEXT_REF: DECISIONS.md#D9
+INPUT: T105 da co export verifyReply(raw, expectedHash, expectedSeq) va decideVerdict(parsed, conditions) nhung lenh parse hien tai chi goi parseResponse - chua verify HASH reply. CLI: make/parse/log (log ho tro @file).
+ASK: SPEC ngan cho executor: (1) parse nhan them option hash/seq (vi du: parse <file> hash=<h> seq=<n>) - co thi verifyReply, result gom verify field, exit 2 neu mismatch; (2) merge decideVerdict vao flow - parse nhan them dieu kien pass=1/fail=1 de ra gateVerdict, khong thi UNCERTAIN; (3) backward-compatible: khong option thi giong cu; (4) fixtures/cach test. OUTPUT 4 field + SPEC, toi da 200 tu.
+OUTPUT:
+  VERDICT: PASS|FAIL|UNCERTAIN
+  DELTA: <new information only>
+  ACTION: <next concrete action>
+  EVIDENCE: <path/hash/test>

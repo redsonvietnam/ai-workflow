@@ -1,0 +1,14 @@
+﻿[WF:v1]
+TASK: T110
+SEQ: 1
+ROLE: CHATGPT
+HASH: f7824f11d6c98025
+OBJECTIVE: Implement CLI wiring theo spec T109
+CONTEXT_REF: DECISIONS.md#D9
+INPUT: SPEC: parse <file> [hash=<h>] [seq=<n>] [pass=1] [fail=1]; hash+seq -> verifyReply, output them verify, mismatch/missing -> exit 2; pass/fail -> decideVerdict, output them gateVerdict, khong du dieu kien -> UNCERTAIN; khong option -> giu nguyen; fixture >=4 case (legacy, verify pass, hash mismatch exit 2, gate pass/fail/uncertain); test deterministic assert stdout+exit code.
+ASK: Dung CodeLocal edit wf/pipeline.mjs (chi phan CLI parse, giu nguyen make/log/dryrun), chay test cac case + node wf\pipeline.mjs van PASS. OUTPUT 4 field, EVIDENCE = ket qua tung case. Toi da 50 tu.
+OUTPUT:
+  VERDICT: PASS|FAIL|UNCERTAIN
+  DELTA: <new information only>
+  ACTION: <next concrete action>
+  EVIDENCE: <path/hash/test>

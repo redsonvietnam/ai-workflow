@@ -141,10 +141,31 @@ if (cmd === 'make') {
   console.log(envelope);
   console.error(`HASH=${hash} SEQ=${seq}`);
 } else if (cmd === 'parse') {
-  const raw = args[0] === '-' ? readFileSync(0, 'utf8') : readFileSync(args[0], 'utf8');
+  const file = args[0];
+  const opts = {};
+  for (const a of args.slice(1)) {
+    const i = a.indexOf('=');
+    if (i > 0) opts[a.slice(0, i)] = a.slice(i + 1);
+  }
+  const raw = file === '-' ? readFileSync(0, 'utf8') : readFileSync(file, 'utf8');
   const p = parseResponse(raw);
-  console.log(JSON.stringify(p, null, 2));
-  if (!p.ok) process.exit(2);
+  const hasHash = Object.prototype.hasOwnProperty.call(opts, 'hash');
+  const hasSeq = Object.prototype.hasOwnProperty.call(opts, 'seq');
+  if (hasHash || hasSeq) {
+    if (!hasHash || !hasSeq) {
+      console.log(JSON.stringify({ ...p, verify: { ok: false, reason: 'HASH_SEQ_MISMATCH', hash: null, seq: null } }, null, 2));
+      process.exit(2);
+    }
+    const verify = verifyReply(raw, opts.hash, Number(opts.seq));
+    console.log(JSON.stringify({ ...p, verify }, null, 2));
+    if (!verify.ok) process.exit(2);
+  }
+  const hasPass = opts.pass === '1';
+  const hasFail = opts.fail === '1';
+  if (hasPass || hasFail) {
+    const gateVerdict = decideVerdict(p, { pass: hasPass, fail: hasFail });
+    console.log(JSON.stringify({ gateVerdict }, null, 2));
+  }
 } else if (cmd === 'log') {
   const payload = (args[0].startsWith('@') ? readFileSync(args[0].slice(1), 'utf8') : args[0]).replace(/^﻿/, '');
   logEvent(JSON.parse(payload));

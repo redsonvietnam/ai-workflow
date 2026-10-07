@@ -1,0 +1,1 @@
+﻿{"task":"T109","seq":1,"hash":"994ffeee7ba69739","relay":"opencode->chatgpt-architect","verdict":"PASS","purpose":"spec noi verifyReply+decideVerdict vao CLI parse","claude_calls":0,"request":"T109 envelope spec CLI wiring","reply":"PASS spec parse options hash/seq/pass/fail"}

@@ -1,0 +1,1 @@
+﻿{"task":"T110","seq":1,"hash":"f7824f11d6c98025","relay":"opencode->chatgpt-executor->codelocal->localcode","verdict":"PASS","executorVerdict":"UNCERTAIN","reason":"terminal safety block -> opencode chay test doc lap 7/7 case","claude_calls":0,"request":"T110 envelope CLI wiring spec","reply":"PASS verify exit2 + gateVerdict dryrun PASS"}
