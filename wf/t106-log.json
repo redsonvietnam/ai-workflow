@@ -1,0 +1,1 @@
+﻿{"task":"T106","seq":1,"hash":"6d1ffb3c030c9921","relay":"fallback-inbox/outbox-file","verdict":"PASS","mode":"dry (0 quota, khong can adapter)","verify":{"hashOk":true,"parseOk":true,"gate":"PASS","mismatch":false},"claude_calls":0,"note":"dieu kien hard-stop 8h adapter co backup kich hoat duoc"}
