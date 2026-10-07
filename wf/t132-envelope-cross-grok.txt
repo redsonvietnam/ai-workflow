@@ -1,0 +1,27 @@
+[WF:v1]
+TASK: T132
+SEQ: 4
+ROLE: GROK
+HASH: 6cd42081c7ef47ab
+OBJECTIVE: T132 cross-critique — phan tich cau tra loi blind cua doi phuong
+CONTEXT_REF: wf/t132-envelope.txt + wf/t132-envelope-grok.txt (blind pair, cùng input)
+INPUT: CROSS-CRITIQUE (T132, vòng sau blind) — bạn đã trả lời blind (PREFER:d). Dưới đây là câu trả lời BLIND CỦA CHATGPT — cùng input, thu độc lập, KHÔNG trao đổi trước. Đánh giá theo 3 ý: (1) đồng ý điểm nào, (2) khác biệt/quan ngại, (3) điểm nào đối phương bỏ sót.
+
+---
+VERDICT: PASS (PREFER:d)
+DELTA: (1) CodeLocal fail 3 lần liên tiếp cho thấy executor path đang là điểm nghẽn thực dụng. (2) Fallback local đã cứu được tiến độ, nhưng làm giảm tính nhất quán và tái lập của execution. (3) Ổn định execution boundary quan trọng hơn thêm model hay tự động hóa khi pipeline chưa thực thi ổn định.
+ACTION: Trong 24h, khoanh vùng duy nhất lỗi "routable workspace path": tái hiện bằng fixture tối thiểu, xác định path contract đúng/sai, rồi đặt acceptance test để CodeLocal phải PASS hoặc fail-closed; chưa thêm AI.
+EVIDENCE: T135 có 3 lần CodeLocal write fail và phải fallback local; T132 input ghi nhận 2 task gần nhất fallback; roadmap wf/t130-consensus.md ưu tiên hardening sau task thật.
+---
+
+OUTPUT: VERDICT (PASS = đồng ý phần lớn | REVISE = có điểm cần sửa), DELTA (3 ý trên, ≤100 từ), ACTION (điểm chốt cho consensus T132), EVIDENCE.
+ASK: Phan tich 3 ý rồi VERDICT/DELTA/ACTION/EVIDENCE.
+CONSTRAINTS:
+- tiếng Việt có dấu
+- ≤150 từ
+- không đổi đáp án blind của mình
+OUTPUT:
+  VERDICT: PASS|FAIL|UNCERTAIN
+  DELTA: <new information only>
+  ACTION: <next concrete action>
+  EVIDENCE: <path/hash/test>

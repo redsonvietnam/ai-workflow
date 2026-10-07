@@ -1,0 +1,24 @@
+[WF:v1]
+TASK: T132
+SEQ: 2
+ROLE: GROK
+HASH: c56fec0ba91e8502
+OBJECTIVE: T132 blind-first — chon 1 uu tien workflow 2 tuan toi (tu tra loi doc lap)
+CONTEXT_REF: CONTEXT.md + DECISIONS.md D1-D13 + wf/t130-consensus.md
+INPUT: BLIND-FIRST (T132) — trả lời ĐỘC LẬP, không tham khảo/AI khác, ≤200 từ, tiếng Việt có dấu.
+
+CÂU HỎI NGÂNH: Workflow đa AI free-tier: opencode (local) điều phối envelope WF:v1 giữa ChatGPT (architect/executor), Claude (reviewer), Grok, Gemini; system of record = git + CONTEXT/DECISIONS/LOG.md; 3 cơ chế chống sai sót (prereg freeze, standalone verifier, evidence bundle) đã chạy thật qua 35 task (T100-T135); CodeLocal (edit tool của ChatGPT) đang fail "routable workspace path" 3 lần liên tiếp → 2 task gần nhất fallback local.
+
+ƯU TIÊN LỚN NHẤT cho 2 tuần tới? Chọn MỘT: (a) mở rộng/thứ hạng thêm AI, (b) harden chống sai sót hơn (verify/gate/audit), (c) tự động hóa relay (giảm click tay), (d) sửa CodeLocal/executor path.
+
+OUTPUT: VERDICT (PREFER:<letter>), DELTA (đúng 3 lý do), ACTION (bước đầu 24h), EVIDENCE (cơ sở lập luận).
+ASK: Tra loi blind theo OUTPUT 4 field.
+CONSTRAINTS:
+- tiếng Việt có dấu
+- ≤200 từ
+- không trao đổi với AI khác
+OUTPUT:
+  VERDICT: PASS|FAIL|UNCERTAIN
+  DELTA: <new information only>
+  ACTION: <next concrete action>
+  EVIDENCE: <path/hash/test>

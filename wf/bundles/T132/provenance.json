@@ -1,0 +1,41 @@
+{
+  "taskId": "T132",
+  "attemptId": 0,
+  "createdAt": "2026-10-07T21:56:31.174Z",
+  "gitCommit": "134dd75da782daa5feb67d7cbf72e6a2f73c706b",
+  "files": [
+    {
+      "path": "wf/t132-envelope.txt",
+      "sha256": "a8139c84128ae97a8c5aaff9fd42a66f019909be7ada6f688fe484170533efaa"
+    },
+    {
+      "path": "wf/t132-envelope-grok.txt",
+      "sha256": "aec605f0cb2edf86f34c4c788f9c9770990d916352c014f70c3ddccf64db0e52"
+    },
+    {
+      "path": "wf/t132-envelope-cross-gpt.txt",
+      "sha256": "d63f0135462c9020f3cf74742db3156f6ac258a79753eef2e17335cc364bd3ee"
+    },
+    {
+      "path": "wf/t132-envelope-cross-grok.txt",
+      "sha256": "11a2dbf7eb56e8b85d31f08def3db0b4cc0659a82dde03e2404a98d5b613c8a3"
+    },
+    {
+      "path": "wf/t132-raw.md",
+      "sha256": "3fb6f35cd1bb17bd0c5d5947793c2d35332f7691589b703b92037a99c8dc39ff"
+    },
+    {
+      "path": "wf/t132-consensus.md",
+      "sha256": "f91c41dcc7782826dd38349b006e47e2f6bbaa4ab44d097fa3e0de200fe7b73b"
+    },
+    {
+      "path": "wf/t132-log.json",
+      "sha256": "21d1240611b205a186a8fd524264e15fd178f52962279ff6af5c29afdbad5f04"
+    },
+    {
+      "path": "wf/verdict-T132.json",
+      "sha256": "b6cd150b173bf2cc141cb4ffbcae9e3b2503771801e94deb72d20d1a462b84ab"
+    }
+  ],
+  "anchor": "638590945c21d471ac54d699fab2fb45f7d9dcee8b862976f8587730abf67388"
+}

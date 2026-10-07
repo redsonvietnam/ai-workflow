@@ -1,0 +1,9 @@
+{
+  "task": "T132",
+  "purpose": "blind-first ChatGPT x Grok: cung input doc lap -> thu 2 cau tra loi -> cross-critique 2 chieu",
+  "seq1": { "hash": "9cbed4474a65f280", "seq": 1, "to": "CHATGPT-architect(tab0)", "verdict": "PREFER:d" },
+  "seq2": { "hash": "c56fec0ba91e8502", "seq": 2, "to": "GROK(tab4)", "verdict": "PREFER:d" },
+  "seq3": { "hash": "ca244249baa6b0a3", "seq": 3, "to": "CHATGPT phan tich dap an Grok", "verdict": "PASS" },
+  "seq4": { "hash": "6cd42081c7ef47ab", "seq": 4, "to": "GROK phan tich dap an ChatGPT", "verdict": "PASS" },
+  "consensus": "PREFER:d (ca 2 chon doc lap, cross 2 chieu PASS)"
+}
