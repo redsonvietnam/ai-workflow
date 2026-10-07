@@ -15,7 +15,11 @@ function loadState() {
   if (!existsSync(STATE)) return { seq: {} };
   return JSON.parse(readFileSync(STATE, 'utf8'));
 }
-function saveState(s) { writeFileSync(STATE, JSON.stringify(s, null, 2)); }
+function saveState(s) {
+  const tmp = STATE + '.tmp';
+  writeFileSync(tmp, JSON.stringify(s, null, 2));
+  renameSync(tmp, STATE);
+}
 export function sha256(s) { return createHash('sha256').update(s, 'utf8').digest('hex'); }
 
 export function canonical(v) {
@@ -575,6 +579,44 @@ if (cmd === 'make') {
   const changed = reapStale(st.tasks);
   saveState(st);
   console.log(JSON.stringify({ changed, tasks: st.tasks }, null, 2));
+} else if (cmd === 'dispute') {
+  const task = args[0];
+  const action = args[1];
+  const usage = () => { console.error('usage: dispute <task> <create|round|status>'); process.exit(2); };
+  if (!task || !action) usage();
+  const st = loadState();
+  st.disputes = st.disputes ?? {};
+  const classes = ['factual', 'spec', 'interpretation', 'preference'];
+  if (action === 'create') {
+    st.disputes[task] = { round: 0, classes: [], status: 'OPEN' };
+    saveState(st);
+    console.log(JSON.stringify({ task, dispute: st.disputes[task] }, null, 2));
+  } else if (action === 'status') {
+    const d = st.disputes[task];
+    if (!d) { console.error('dispute chưa tồn tại: ' + task); process.exit(2); }
+    console.log(JSON.stringify({ task, dispute: d }, null, 2));
+  } else if (action === 'round') {
+    const d = st.disputes[task];
+    if (!d) { console.error('dispute chưa tạo: ' + task); process.exit(2); }
+    if (d.status === 'BLOCKED') { console.error('dispute đã BLOCKED — không nhận vòng mới'); process.exit(2); }
+    const ci = args.indexOf('--class');
+    const cls = ci >= 0 ? args[ci + 1] : null;
+    if (!classes.includes(cls)) { console.error('class phải thuộc: ' + classes.join('|')); process.exit(2); }
+    d.round += 1;
+    d.classes.push(cls);
+    let taskState = st.tasks?.[task]?.state ?? null;
+    if (d.round > 2) {
+      d.status = 'BLOCKED';
+      const t = st.tasks?.[task];
+      if (t) {
+        try { t.state = assertTransition(t.state, 'DEAD_LETTER'); t.updatedAt = Date.now(); }
+        catch { /* DONE/không cho phép → chỉ BLOCK dispute */ }
+        taskState = t.state;
+      }
+    }
+    saveState(st);
+    console.log(JSON.stringify({ task, dispute: d, taskState }, null, 2));
+  } else usage();
 } else if (cmd === 'log') {
   const payload = (args[0].startsWith('@') ? readFileSync(args[0].slice(1), 'utf8') : args[0]).replace(/^﻿/, '');
   try {

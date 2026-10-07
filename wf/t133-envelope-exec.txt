@@ -1,0 +1,25 @@
+[WF:v1]
+TASK: T133
+SEQ: 2
+ROLE: CHATGPT
+HASH: d694e9f0f4b8be00
+OBJECTIVE: T133 CODE — dispute CLI + atomic saveState + fixture
+CONTEXT_REF: wf/t133-spec.md (FROZEN 9a43dd17…)
+INPUT: Nhiệm vụ: triển khai T133 theo spec đã freeze — ĐỌC file wf/t133-spec.md (đã freeze sha256 9a43dd17897ed936caf9b5e3201170f69dd88c450e501cfcc2546f25c9c64de6) rồi CODE.
+
+CÔNG VIỆC (CodeLocal apply, đúng spec — không sáng tạo ngoài spec):
+1) wf/pipeline.mjs: thêm nhánh `dispute <task> <create|round|status>` (spec mục 1-2), exit 0 transition hợp lệ (gồm BLOCKED), exit 2 class sai.
+2) Nâng `saveState` atomic (temp + rename) — spec mục 5.
+3) Viết wf/test-dispute.mjs (spec mục 4), chạy: node wf/test-dispute.mjs.
+4) Regression: node wf/pipeline.mjs validate + node wf/pipeline.mjs verifychain (exit 0).
+
+OUTPUT 4 field như mọi envelope.
+ASK: Apply code + chạy fixture/regression. OUTPUT: VERDICT/DELTA/ACTION/EVIDENCE.
+CONSTRAINTS:
+- không sửa spec
+- không đổi exit 0-8
+OUTPUT:
+  VERDICT: PASS|FAIL|UNCERTAIN
+  DELTA: <new information only>
+  ACTION: <next concrete action>
+  EVIDENCE: <path/hash/test>

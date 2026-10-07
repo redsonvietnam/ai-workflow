@@ -1,0 +1,29 @@
+[WF:v1]
+TASK: T133
+SEQ: 1
+ROLE: CHATGPT
+HASH: 8e68241996f39894
+OBJECTIVE: T133 spec — phân loại disagreement (4 loại) max 2 vòng → BLOCKED/DEAD_LETTER
+CONTEXT_REF: wf/t130-consensus.md (mục T133) + workflow-lab AI_COLLABORATION_PROTOCOL_V1 + state machine hiện có
+INPUT: Nhiệm vụ: ra SPEC cho T133 — Phân loại disagreement + BLOCKED (consensus T130).
+
+NGỮNH CẢNH: workflow-lab quy tắc: disagreement → experiment phân loại factual/spec/interpretation/preference, max 2 vòng trao đổi → BLOCKED. Repo mình đã có state machine (STATES/TRANSITIONS, max_attempts=3, reapStale, DEAD_LETTER) + escalation budget exit 3 (T122).
+
+YÊU CẦU SPEC (bạn quyết định chi tiết):
+1) Lệnh mới trong wf/pipeline.mjs: `dispute <task> <create|round|status>` — lưu vào state.json: st.disputes[task] = {round, classes: [...], status}.
+2) `round --class <factual|spec|interpretation|preference>`: tăng round, ghi class; vòng hợp lệ tối đa = 2. Vòng thứ 3 → status=BLOCKED + đánh dấu task DEAD_LETTER trong st.tasks (dùng assertTransition có sẵn; task DONE/không tồn tại → chỉ dispute BLOCKED, không đụng task).
+3) Exit code: bạn chọn (0 + status BLOCKED, hay 3 HUMAN_REQUIRED — nêu lý do).
+4) Test fixture (test-dispute.mjs): create → round1 factual → round2 interpretation → round3 → BLOCKED + DEAD_LETTER; class sai → lỗi/schema exit 2; chạy lặp được.
+5) Không đổi mã 0-8 hiện có; T131 vừa merge (exit 8 = STALE/LOCK) — không đụng.
+
+ACCEPTANCE: fixture PASS; dispute quá 2 vòng → BLOCKED/DEAD_LETTER đúng state machine; tiếng Việt có dấu.
+ASK: Ra spec T133 theo 5 mục (chọn exit code + lý do). OUTPUT 4 field; DELTA ≤150 từ — opencode ghi wf/t133-spec.md rồi freeze.
+CONSTRAINTS:
+- tiếng Việt có dấu
+- chỉ spec — chưa code
+- không đụng exit 0-8 hiện có
+OUTPUT:
+  VERDICT: PASS|FAIL|UNCERTAIN
+  DELTA: <new information only>
+  ACTION: <next concrete action>
+  EVIDENCE: <path/hash/test>

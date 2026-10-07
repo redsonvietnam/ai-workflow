@@ -1,0 +1,41 @@
+{
+  "taskId": "T133",
+  "attemptId": 0,
+  "createdAt": "2026-10-07T21:49:15.983Z",
+  "gitCommit": "51686ede8ce3d561dbe01a2b6fa5fbdb65859d3b",
+  "files": [
+    {
+      "path": "wf/t133-spec.md",
+      "sha256": "9a43dd17897ed936caf9b5e3201170f69dd88c450e501cfcc2546f25c9c64de6"
+    },
+    {
+      "path": "wf/t133-raw.md",
+      "sha256": "437a715183566388ea45ebc62d2e3486a278d3f2029a49bf83bcfe7632f11a7a"
+    },
+    {
+      "path": "wf/t133-exec-raw.md",
+      "sha256": "0ac4e3d4f871058f8371d8ecdd2b04c31006b4c175907dd8e6ee8e962845dc4d"
+    },
+    {
+      "path": "wf/t133-envelope.txt",
+      "sha256": "d3cc8ac22494ea29b807be92badd45aec09e3d04e5b1fc4d441cdcbc66752b59"
+    },
+    {
+      "path": "wf/t133-envelope-exec.txt",
+      "sha256": "1a49a14a9ba8e5ad58b26b925cb5c3e8c9cc657ea9d77e9e0aa3995a9fd857ee"
+    },
+    {
+      "path": "wf/t133-log.json",
+      "sha256": "36455e54cd7f0f85a341c2ac280f3a4f91ff8197b867b764d3bbfb56784e5f53"
+    },
+    {
+      "path": "wf/verdict-T133.json",
+      "sha256": "1d1db28a86701aa91a632acfd414fc97e7d4aab021d5ca1f076b694ba62b5942"
+    },
+    {
+      "path": "wf/test-dispute.mjs",
+      "sha256": "c743761a1b03f2a52f0706e3c0abb933a1220027b76f03a28ed8e36173c2d3fe"
+    }
+  ],
+  "anchor": "4e80d8743f163522427ae0df3d76e4db3295e625ad8225af440bb6eca71d9919"
+}

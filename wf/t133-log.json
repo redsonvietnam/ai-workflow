@@ -1,0 +1,16 @@
+{
+  "task": "T133",
+  "purpose": "phan loai disagreement 4 loai, max 2 vong -> BLOCKED/DEAD_LETTER",
+  "seq1": {
+    "hash": "8e68241996f39894",
+    "seq": 1,
+    "to": "CHATGPT-architect"
+  },
+  "seq2": {
+    "hash": "d694e9f0f4b8be00",
+    "seq": 2,
+    "to": "CHATGPT-executor",
+    "verdict": "UNCERTAIN",
+    "reason": "CodeLocal patch routable path x3 consecutive -> fallback local"
+  }
+}
