@@ -27,7 +27,7 @@ HUMAN → scope/gate
 - Thảo luận vòng 2 (chỉ đạo 80/20 + research): **V1.5 FINAL — ChatGPT chốt, Claude KÝ** (xem DECISIONS.md D8). Research findings: mcp-web-llm = reference có sẵn; browser-use/desktop-commander = cắt; model routing bảng D7.
 - **V1.5 checklist bước 1-7 DONE**, merge vào main (4566e88). CodeLocal probe PASS (14 tools, Apache-2.0).
 - **V2 test DONE (2026-10-07):** T101 read PASS, T102 write PASS (executionMode=live do user chọn; schema mismatch gateway/plugin — điều kiện bỏ ở D9), T103 escalation Claude PASS (claude_calls=1). Evidence: wf/t101-*, wf/t102-*, wf/t103-*.
-- **Còn lại:** harden reply-side HASH check (Claude T103), commit V2 lên main, dùng thật.
+- **Còn lại:** harden reply-side HASH check (Claude T103) — task riêng; V2 đã merge vào main (fbf8bb3, 2026-10-07).
 - Session exam mobifone: đã logout (task thi đã xong — xem LOG.md mục Exam).
 
 ## Liên hệ nhanh
