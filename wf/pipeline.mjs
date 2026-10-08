@@ -85,6 +85,26 @@ export function bundleCheck(task) {
   }
   return { ok: errors.length === 0, errors };
 }
+export function collectSealInfo(logText) {
+  const legacyLines = [];
+  const seals = [];
+  const malformedSeals = [];
+  for (const line of String(logText ?? '').split(/\r?\n/)) {
+    const j = line.indexOf('|');
+    if (j < 0) continue;
+    let ev;
+    try { ev = JSON.parse(line.slice(j + 1).trim()); } catch { continue; }
+    if (!ev) continue;
+    if (ev.type === 'SEAL') {
+      if (ev.eventHash) seals.push(ev);
+      else malformedSeals.push(ev);
+      continue;
+    }
+    if (!ev.eventHash) legacyLines.push(line);
+  }
+  const legacyDigest = sha256(legacyLines.join('\n'));
+  return { legacyLines, legacyCount: legacyLines.length, legacyDigest, seals, malformedSeals };
+}
 export function verifyChain(logText) {
   const checked = [];
   const legacy = [];
@@ -104,7 +124,30 @@ export function verifyChain(logText) {
     prev = ev.eventHash;
     checked.push(ev.task ?? '?');
   }
-  return { ok: broken.length === 0, checked: checked.length, legacy: legacy.length, broken };
+  const result = { ok: broken.length === 0, checked: checked.length, legacy: legacy.length, broken };
+  const sealInfo = collectSealInfo(logText);
+  if (sealInfo.malformedSeals.length > 0) {
+    result.ok = false;
+    result.reason = 'SEAL_MALFORMED';
+    result.sealed = false;
+  } else if (sealInfo.seals.length > 1) {
+    result.ok = false;
+    result.reason = 'MULTIPLE_SEALS';
+    result.sealed = false;
+  } else if (sealInfo.seals.length === 1) {
+    const seal = sealInfo.seals[0];
+    const digestOk = seal.legacyDigest === sealInfo.legacyDigest && seal.legacyCount === sealInfo.legacyCount;
+    if (digestOk && broken.length === 0) {
+      result.sealed = true;
+    } else {
+      if (!digestOk) {
+        result.ok = false;
+        result.reason = 'LEGACY_TAMPER';
+      }
+      result.sealed = false;
+    }
+  }
+  return result;
 }
 
 export function checkEscalation(task, today = new Date().toISOString().slice(0, 10), additionalCalls = 1) {
@@ -331,6 +374,9 @@ function logEventLocked(entry) {
     replyBytes: entry.replyBytes ?? Buffer.byteLength(reply, 'utf8'),
   };
   enriched.idempotencyKey = idempotencyKey;
+  if (entry.type != null) enriched.type = entry.type;
+  if (entry.legacyCount != null) enriched.legacyCount = entry.legacyCount;
+  if (entry.legacyDigest != null) enriched.legacyDigest = entry.legacyDigest;
   const prevEventHash = lastEventHash();
   enriched.prevHash = prevEventHash ?? 'GENESIS';
   enriched.eventHash = computeEventHash(enriched.prevHash, enriched);
@@ -728,6 +774,55 @@ if (cmd === 'make') {
   const r = verifyChain(existsSync(LOG) ? readFileSync(LOG, 'utf8') : '');
   console.log(JSON.stringify(r, null, 2));
   if (!r.ok) process.exit(4);
+} else if (cmd === 'seal') {
+  const logText = existsSync(LOG) ? readFileSync(LOG, 'utf8') : '';
+  const sealInfo = collectSealInfo(logText);
+  if (sealInfo.malformedSeals.length > 0) {
+    console.log(JSON.stringify({ ok: false, reason: 'SEAL_MALFORMED', malformedFound: sealInfo.malformedSeals.length }, null, 2));
+    process.exit(4);
+  }
+  if (sealInfo.seals.length > 1) {
+    console.log(JSON.stringify({ ok: false, reason: 'MULTIPLE_SEALS', sealsFound: sealInfo.seals.length }, null, 2));
+    process.exit(4);
+  }
+  if (sealInfo.seals.length === 1) {
+    const seal = sealInfo.seals[0];
+    const sealHashOk = seal.eventHash === computeEventHash(seal.prevHash, seal);
+    if (!sealHashOk) {
+      console.log(JSON.stringify({ ok: false, reason: 'SEAL_INVALID', detail: 'SEAL eventHash mismatch' }, null, 2));
+      process.exit(4);
+    }
+    if (seal.legacyDigest === sealInfo.legacyDigest && seal.legacyCount === sealInfo.legacyCount) {
+      console.log(JSON.stringify({ ok: true, status: 'SEAL_EXISTS', legacyCount: sealInfo.legacyCount, legacyDigest: sealInfo.legacyDigest }, null, 2));
+      process.exit(0);
+    }
+    console.log(JSON.stringify({ ok: false, reason: 'LEGACY_TAMPER', expected: seal.legacyDigest, actual: sealInfo.legacyDigest }, null, 2));
+    process.exit(4);
+  }
+  try {
+    const res = logEvent({
+      task: 'T145',
+      hash: null,
+      relay: null,
+      verdict: 'PASS',
+      type: 'SEAL',
+      legacyCount: sealInfo.legacyCount,
+      legacyDigest: sealInfo.legacyDigest,
+      claude_calls: 0,
+    });
+    if (!res.logged) {
+      console.log(JSON.stringify({ ok: true, status: 'SEAL_EXISTS', legacyCount: sealInfo.legacyCount, legacyDigest: sealInfo.legacyDigest }, null, 2));
+      process.exit(0);
+    }
+    console.log(JSON.stringify({ ok: true, status: 'SEALED', legacyCount: sealInfo.legacyCount, legacyDigest: sealInfo.legacyDigest }, null, 2));
+    process.exit(0);
+  } catch (err) {
+    if (err?.message === 'HUMAN_REQUIRED') {
+      console.log(JSON.stringify({ ok: false, reason: 'HUMAN_REQUIRED' }, null, 2));
+      process.exit(3);
+    }
+    throw err;
+  }
 } else if (cmd === 'reap') {
   const st = loadState();
   st.tasks = st.tasks ?? {};
