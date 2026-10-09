@@ -221,7 +221,11 @@ try {
   check('P14b-file-symlink', a12.status !== 0 && !hijacked, `status=${a12.status} hijacked=${hijacked} out=${JSON.stringify(out(a12))}`);
   try { unlinkSync(flink); } catch { /* bỏ qua */ }
 } catch (e) {
-  skip('P14b-file-symlink', 'file symlink requires Windows Developer Mode or CI Ubuntu/macOS: ' + e.message);
+  const isEperm = e.code === 'EPERM' || e.message?.includes('EPERM') || e.message?.includes('operation not permitted');
+  const msg = isEperm 
+    ? 'file symlink requires Windows Developer Mode or CI Ubuntu/macOS (EPERM)' 
+    : 'file symlink create failed: ' + e.message;
+  skip('P14b-file-symlink', msg);
 }
 
 // P15b: junction lồng hai tầng (j2 -> j1 -> ngoài ws)

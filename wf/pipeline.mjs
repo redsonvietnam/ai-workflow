@@ -2,7 +2,7 @@
 // WF:v1 pipeline — HASH/SEQ do script tính, KHÔNG nhờ model.
 import { createHash } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
-import { readFileSync, writeFileSync, mkdirSync, existsSync, openSync, closeSync, unlinkSync, renameSync, realpathSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdirSync, existsSync, openSync, closeSync, unlinkSync, renameSync, realpathSync, writeSync } from 'node:fs';
 import { logPayload } from './payload-log.mjs';
 import { dirname, join, resolve, sep, isAbsolute, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -29,15 +29,17 @@ const WIN = process.platform === 'win32';
 const norm = (p) => WIN ? p.replace(/\\/g, '/').toLowerCase() : p.replace(/\\/g, '/');
 // F2: wrapper log outcome+reason + điểm thoát duy nhất
 function logOutcome(outcome, reason, extra = {}) {
-  console.error(JSON.stringify({ outcome, reason, ...extra }));
+  const msg = JSON.stringify({ outcome, reason, ...extra }) + '\n';
+  try { writeSync(process.stderr.fd, msg); } catch { /* ignore */ }
 }
 function writeOutAndExit(obj, code = 0) {
   process.stdout.write(JSON.stringify(obj, null, 2) + '\n');
   process.exit(code);
 }
-function exitWith(reason, extra = {}, code = 2) {
+function exitWith(reason, extra = {}, code) {
+  const defaultCode = (reason === 'STALE_REJECT' || reason === 'LOCKED') ? 8 : 2;
   logOutcome('ERROR', reason, extra);
-  writeOutAndExit({ ok: false, reason, ...extra }, code);
+  writeOutAndExit({ ok: false, reason, ...extra }, code ?? defaultCode);
 }
 function successOutcome(written = []) {
   logOutcome('SUCCESS', 'SUCCESS', { written });
@@ -50,9 +52,12 @@ function escapesRoot(rel) {
 }
 // (ii) Windows strip semantics: segment không được kết thúc bằng space/dot (trừ '.' và '..'),
 // nếu không '.env ' sẽ thành '.env' ở tầng FS và bypass blocklist.
+// (P17) Drive letter casing: normalize drive letter to uppercase (Windows convention)
 function winNormalize(rawPath) {
   if (!WIN) return rawPath;
-  return rawPath.split(/[\\/]+/).map((seg) => (seg === '.' || seg === '..') ? seg : seg.replace(/[ .]+$/, '')).join('/');
+  // Normalize drive letter to uppercase (C: -> C:, c: -> C:) only at the start of path
+  let normalized = rawPath.replace(/^([a-z]):/i, (_, d) => d.toUpperCase() + ':');
+  return normalized.split(/[\\/]+/).map((seg) => (seg === '.' || seg === '..') ? seg : seg.replace(/[ .]+$/, '')).join('/');
 }
 // F2: errorClass mapping table (single source of truth)
 const ERROR_CLASS_MAP = {
@@ -198,132 +203,17 @@ function safeContain(abs) {
 }
 
 // F2: errorClass mapping table (single source of truth)
-const ERROR_CLASS_MAP = {
-  TRAVERSAL: 'VALIDATE_REJECT',
-  BLOCKED_PATH: 'VALIDATE_REJECT',
-  NOT_ALLOWED: 'VALIDATE_REJECT',
-  ENTRY_INVALID: 'VALIDATE_REJECT',
-  PLAN_MALFORMED: 'VALIDATE_REJECT',
-  PLAN_EMPTY: 'VALIDATE_REJECT',
-  NO_PLAN: 'VALIDATE_REJECT',
-  CONTENT_UNREADABLE: 'VALIDATE_REJECT',
-  ENTRY_NO_CONTENT: 'VALIDATE_REJECT',
-  STALE_REJECT: 'CONCURRENCY',
-  LOCKED: 'CONCURRENCY',
-  APPLY_ERROR: 'IO_ERROR',
-};
 
-function errorClassFor(reason) {
-  return ERROR_CLASS_MAP[reason] ?? 'INTERNAL';
-}
 
 // F2: log to JSONL file (wf/logs/code-local-payloads.jsonl)
-function logToJsonl(entry) {
-  try {
-    mkdirSync(dirname(join(WF, 'logs', 'code-local-payloads.jsonl')), { recursive: true });
-    appendFileSync(join(WF, 'logs', 'code-local-payloads.jsonl'), JSON.stringify(entry) + '\n');
-  } catch { /* best-effort, never throw */ }
-}
 
 // F2: redaction function (shared)
-function redactForLog(text) {
-  if (!text) return text;
-  let out = String(text);
-  for (const re of SECRET_PATTERNS) out = out.replace(re, '[REDACTED]');
-  return out;
-}
 
 // F2: single logOnce function - writes one JSONL line with all required fields
-function logOnce(result, taskId, rawPaths, canonicalPaths) {
-  const entry = {
-    ts: new Date().toISOString(),
-    pid: process.pid,
-    taskId: taskId ?? null,
-    entryCount: Array.isArray(rawPaths) ? rawPaths.length : 0,
-    rawPaths: rawPaths ?? [],
-    canonicalPaths: canonicalPaths ?? [],
-    outcome: result.ok ? 'SUCCESS' : 'ERROR',
-    reason: result.ok ? 'SUCCESS' : (result.reason ?? 'UNKNOWN'),
-    errorClass: result.ok ? 'OK' : errorClassFor(result.reason),
-  };
-  // For blocked branches: include sha256 + length of content instead of preview
-  if (!result.ok && result.written) {
-    entry.written = result.written;
-  } else if (!result.ok && result.extra && result.extra.content) {
-    const content = String(result.extra.content);
-    entry.contentSha256 = createHash('sha256').update(content, 'utf8').digest('hex');
-    entry.contentLength = Buffer.byteLength(content, 'utf8');
-  }
-  // Redact before any truncation
-  const redactedEntry = JSON.parse(redactForLog(JSON.stringify(entry)));
-  logToJsonl(redactedEntry);
-}
 
 // F2: ApplyReject error class - replaces bail()
-class ApplyReject extends Error {
-  constructor(reason, extra = {}) {
-    super(reason);
-    this.name = 'ApplyReject';
-    this.reason = reason;
-    this.extra = extra;
-  }
-}
 
 // F2: core apply logic - returns result object, never calls process.exit
-async function runApply(planPath) {
-  const planText = readFileSync(planPath, 'utf8');
-  let plan;
-  try { plan = JSON.parse(planText); } catch { throw new ApplyReject('PLAN_MALFORMED'); }
-  const entries = Array.isArray(plan) ? plan : plan.files;
-  if (!Array.isArray(entries) || entries.length === 0) throw new ApplyReject('PLAN_EMPTY');
-  const allowRel = (rel) => rel.split(sep).join('/').startsWith('wf/') || /^(CONTEXT|DECISIONS|LOG)\.md$/.test(rel) || /^\.git(ignore|attributes)$/.test(rel);
-  const resolved = [];
-  const rawPaths = [];
-  const canonicalPaths = [];
-  for (const e of entries) {
-    if (!e || typeof e.path !== 'string' || e.path.length === 0) throw new ApplyReject('ENTRY_INVALID', { entry: e });
-    if (e.before_sha256 !== null && !(typeof e.before_sha256 === 'string' && /^[0-9a-f]{64}$/.test(e.before_sha256))) throw new ApplyReject('ENTRY_INVALID', { entry: e });
-    const v = validateWorkspacePath(e.path);
-    if (!v.ok) throw new ApplyReject(v.reason, { path: e.path });
-    const { abs, rel } = v;
-    if (!allowRel(rel)) throw new ApplyReject('NOT_ALLOWED', { rel });
-    rawPaths.push(e.path);
-    canonicalPaths.push(v.abs);
-    let content = null;
-    if (typeof e.content === 'string') content = e.content;
-    else if (typeof e.contentPath === 'string') {
-      try { content = readFileSync(resolve(ROOT, e.contentPath), 'utf8'); } catch { throw new ApplyReject('CONTENT_UNREADABLE', { path: e.contentPath }); }
-    } else throw new ApplyReject('ENTRY_NO_CONTENT', { entry: e });
-    resolved.push({ abs: v.abs, rel, before: e.before_sha256, content });
-  }
-  const LOCK = join(WF, '.apply.lock');
-  let fd = null;
-  try { fd = openSync(LOCK, 'wx'); } catch { throw new ApplyReject('LOCKED', { lock: LOCK }); }
-  const temps = [];
-  let result, exitCode = 0;
-  try {
-    const stale = [];
-    for (const e of resolved) {
-      const cur = existsSync(e.abs) ? createHash('sha256').update(readFileSync(e.abs)).digest('hex') : null;
-      if (cur !== e.before) stale.push({ path: e.rel, expected: e.before, actual: cur });
-    }
-    if (stale.length) { throw new ApplyReject('STALE_REJECT', { stale }); }
-    const written = [];
-    for (const e of resolved) {
-      const tmp = e.abs + '.tmp-apply-' + process.pid;
-      writeFileSync(tmp, e.content, 'utf8');
-      renameSync(tmp, e.abs);
-      written.push(e.rel);
-    }
-    return { ok: true, written, writtenRel: written };
-  } finally {
-    // Release lock before logging
-    try { if (fd !== null) closeSync(fd); } catch { /* ignore */ }
-    try { if (existsSync(LOCK)) unlinkSync(LOCK); } catch { /* ignore */ }
-    // Cleanup temps
-    for (const t of temps) { try { if (existsSync(t)) unlinkSync(t); } catch { /* ignore */ } }
-  }
-}
 // F1: blocklist segment — .git/.ssh/.aws/.envrc/.env(.khiêm tốn) trên canonical path
 const BLOCK_RE = /(^|\/)(\.git|\.ssh|\.aws|\.envrc|\.env)(\.|\/|$)/i;
 function normSeg(p) { const n = p.split(sep).join('/'); return WIN ? n.toLowerCase() : n; }
@@ -1008,7 +898,7 @@ if (cmd === 'make') {
   }
 } else if (cmd === 'apply') {
   const planPath = args[0];
-  if (!planPath) { console.error('NO_PLAN'); process.exit(2); }
+  if (!planPath) { exitWith('NO_PLAN'); }
   try {
     const result = await runApply(planPath);
     if (result.ok) {
