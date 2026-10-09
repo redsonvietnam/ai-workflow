@@ -710,9 +710,13 @@ if (cmd === 'make') {
   const task = args[0];
   const files = args.slice(1);
   if (!task || !files.length) { console.error('usage: bundle <task> <file...>'); process.exit(2); }
+  // Validate task id format: T\\d+(-[A-Za-z0-9]+)* (prevent traversal)
+  if (!/^T\d+(-[A-Za-z0-9]+)*$/.test(task)) { console.error('INVALID_TASK_ID'); process.exit(2); }
   console.log(JSON.stringify(bundleCreate(task, files), null, 2));
 } else if (cmd === 'bundle-check') {
-  const r = bundleCheck(args[0] ?? '');
+  const task = args[0] ?? '';
+  if (!/^T\d+(-[A-Za-z0-9]+)*$/.test(task)) { console.error('INVALID_TASK_ID'); process.exit(2); }
+  const r = bundleCheck(task);
   console.log(JSON.stringify(r, null, 2));
   if (!r.ok) process.exit(7);
 } else if (cmd === 'standalone') {
