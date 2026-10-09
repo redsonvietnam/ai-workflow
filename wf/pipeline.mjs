@@ -27,10 +27,15 @@ function saveState(s) {
 export function sha256(s) { return createHash('sha256').update(s, 'utf8').digest('hex'); }
 const WIN = process.platform === 'win32';
 const norm = (p) => WIN ? p.replace(/\\/g, '/').toLowerCase() : p.replace(/\\/g, '/');
+// containment theo thành phần đường dẫn — không false-positive '..notes' (review ChatGPT)
+function escapesRoot(rel) {
+  if (rel === '' || isAbsolute(rel)) return true;
+  return rel.split(/[\\/]+/).some((seg) => seg === '..');
+}
 function inRoot(candidate) {
   const rel = relative(ROOT_REAL, candidate);
-  if (rel === '' || rel.startsWith('..')) return false;
-  return !isAbsolute(rel);
+  if (escapesRoot(rel)) return false;
+  return true;
 }
 function safeContain(abs) {
   let real;
@@ -41,6 +46,32 @@ function safeContain(abs) {
     try { const rd = realpathSync(dir); return inRoot(rd); }
     catch { const parent = dirname(dir); if (parent === dir) return false; dir = parent; }
   }
+}
+
+// F1: blocklist segment — .git/.ssh/.aws/.envrc/.env(.khiêm tốn) trên canonical path
+const BLOCK_RE = /(^|\/)(\.git|\.ssh|\.aws|\.envrc|\.env)(\.|\/|$)/i;
+function normSeg(p) { const n = p.split(sep).join('/'); return WIN ? n.toLowerCase() : n; }
+function realpathResolved(p) {
+  try { return realpathSync(p); } catch { /* walk up */ }
+  let dir = dirname(p);
+  while (true) {
+    try { return join(realpathSync(dir), relative(dir, p)); }
+    catch { const parent = dirname(dir); if (parent === dir) return null; dir = parent; }
+  }
+}
+// F1: một hàm validate duy nhất cho make và apply (Claude: không vá riêng lẻ).
+// Trả về { ok, abs, rel } hoặc { ok:false, reason } — reason ∈ TRAVERSAL | BLOCKED_PATH.
+export function validateWorkspacePath(raw) {
+  const abs = isAbsolute(raw) ? resolve(raw) : resolve(ROOT, raw);
+  const rel = relative(ROOT, abs);
+  if (escapesRoot(rel)) return { ok: false, reason: 'TRAVERSAL', path: raw };
+  const real = realpathResolved(abs);
+  if (!real) return { ok: false, reason: 'TRAVERSAL', path: raw }; // fail-closed khi không resolve được realpath
+  const rr = relative(normSeg(ROOT_REAL), normSeg(real));
+  if (escapesRoot(rr)) return { ok: false, reason: 'TRAVERSAL', path: raw };
+  if (BLOCK_RE.test(normSeg(rr))) return { ok: false, reason: 'BLOCKED_PATH', path: raw };
+  if (BLOCK_RE.test(normSeg(rel))) return { ok: false, reason: 'BLOCKED_PATH', path: raw };
+  return { ok: true, abs, rel };
 }
 
 export function canonical(v) {
@@ -605,12 +636,10 @@ if (cmd === 'make') {
   if (o.files) {
     const fileLines = [];
     for (const fp of o.files.split(',')) {
-      const abs = resolve(ROOT, fp);
-      if (!norm(abs).startsWith(norm(ROOT) + '/')) { console.error(`TRAVERSAL: ${fp}`); process.exit(2); }
-      const rel = norm(abs).slice(norm(ROOT).length + 1);
-      if (/(^|\/)(\.git|\.env|\.ssh|\.aws)(\/|$)/i.test(rel)) { console.error(`BLOCKED_PATH: ${fp}`); process.exit(2); }
-      if (!existsSync(abs)) { console.error(`FILE_MISSING: ${fp}`); process.exit(2); }
-      fileLines.push(`FILE_SHA256: ${fp}=${sha256(readFileSync(abs))}`);
+      const v = validateWorkspacePath(fp);
+      if (!v.ok) { console.error(`${v.reason}: ${fp}`); process.exit(2); }
+      if (!existsSync(v.abs)) { console.error(`FILE_MISSING: ${fp}`); process.exit(2); }
+      fileLines.push(`FILE_SHA256: ${fp}=${sha256(readFileSync(v.abs))}`);
     }
     input = fileLines.join('\n') + '\n' + input;
   }
@@ -713,9 +742,9 @@ if (cmd === 'make') {
   for (const e of entries) {
     if (!e || typeof e.path !== 'string' || e.path.length === 0) bail('ENTRY_INVALID', { entry: e });
     if (e.before_sha256 !== null && !(typeof e.before_sha256 === 'string' && /^[0-9a-f]{64}$/.test(e.before_sha256))) bail('ENTRY_INVALID', { entry: e });
-    const abs = isAbsolute(e.path) ? resolve(e.path) : resolve(ROOT, e.path);
-    if (!abs.startsWith(ROOT + sep)) bail('TRAVERSAL', { path: e.path });
-    const rel = relative(ROOT, abs);
+    const v = validateWorkspacePath(e.path);
+    if (!v.ok) bail(v.reason, { path: e.path });
+    const { abs, rel } = v;
     if (!allowRel(rel)) bail('NOT_ALLOWED', { rel });
     let content = null;
     if (typeof e.content === 'string') content = e.content;

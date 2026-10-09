@@ -84,6 +84,11 @@ writeFileSync(join(ROOT, 'wf', 'safe.md'), 'S');
 const m22 = runMake(ROOT, 'wf/./safe.md');
 check('P22-dot-segment-ok', m22.status === 0, `status=${m22.status} err=${m22.stderr.trim()}`);
 
+// P23: tên file '..notes' không phải traversal (false-positive do review ChatGPT nêu — component check)
+writeFileSync(join(ROOT, '..notes-t160'), 'N');
+const m23 = runMake(ROOT, '..notes-t160');
+check('P23-no-false-dots', m23.status === 0, `status=${m23.status} err=${m23.stderr.trim()}`);
+
 const m11 = runMake(ROOT, 'x/../.git/config');
 check('P11-traversal-combined', m11.status === 2 && /BLOCKED_PATH/.test(m11.stderr), `status=${m11.status} err=${m11.stderr.trim()}`);
 
