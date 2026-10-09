@@ -8,14 +8,14 @@ Phạm vi: **CHỈ** trích ràng buộc mà T131 (stale-check/apply) và T133 (
 
 | # | Nguồn | Đường dẫn neo | SHA-256 (tính lại) |
 |---|---|---|---|
-| S1 | Skill local `pcm-pwf` | `C:\Users\Fesdinang\.config\opencode\skills\pcm-pwf\SKILL.md` (2490 bytes) | `ff086e0c39ae26645e875b1460f626503e39b78ccb4bc4f97b7cf0679a1aa442` |
+| S1 | Skill local `pcm-pwf` | `<user-home>\.config\opencode\skills\pcm-pwf\SKILL.md` (2490 bytes) | `ff086e0c39ae26645e875b1460f626503e39b78ccb4bc4f97b7cf0679a1aa442` |
 | S2 | pcm `docs/PCM.md` | commit `ee20500ab4b4334b45e4c3fbbe6a38a75fb35597` (11141 bytes) | `13a1043c14522f80ec9b73ff6e84eec3b96ecea35aa79f0fcd831f00374be01e` |
 | S3 | pcm `docs/PWF.md` | commit `ee20500ab4b4334b45e4c3fbbe6a38a75fb35597` (7543 bytes) | `43223791867c5e798b2dabc05a0afc66cd22fa1c685b11193c895e21db0da7f4` |
 | S4 | pcm `docs/CONFORMANCE.md` | commit `ee20500ab4b4334b45e4c3fbbe6a38a75fb35597` (3630 bytes) | `256b15fcc8e0e034fab34cd2e63385879b55b16abcca5ee90b97b849fcfe3fa7` |
 
 ```t134-sources
 [
-  {"id": "S1", "kind": "file", "path": "C:\\Users\\Fesdinang\\.config\\opencode\\skills\\pcm-pwf\\SKILL.md", "sha256": "ff086e0c39ae26645e875b1460f626503e39b78ccb4bc4f97b7cf0679a1aa442"},
+  {"id": "S1", "kind": "file", "path": "<user-home>\\.config\\opencode\\skills\\pcm-pwf\\SKILL.md", "sha256": "ff086e0c39ae26645e875b1460f626503e39b78ccb4bc4f97b7cf0679a1aa442"},
   {"id": "S2", "kind": "url", "url": "https://raw.githubusercontent.com/redsonvietnam/pcm/ee20500ab4b4334b45e4c3fbbe6a38a75fb35597/docs/PCM.md", "sha256": "13a1043c14522f80ec9b73ff6e84eec3b96ecea35aa79f0fcd831f00374be01e"},
   {"id": "S3", "kind": "url", "url": "https://raw.githubusercontent.com/redsonvietnam/pcm/ee20500ab4b4334b45e4c3fbbe6a38a75fb35597/docs/PWF.md", "sha256": "43223791867c5e798b2dabc05a0afc66cd22fa1c685b11193c895e21db0da7f4"},
   {"id": "S4", "kind": "url", "url": "https://raw.githubusercontent.com/redsonvietnam/pcm/ee20500ab4b4334b45e4c3fbbe6a38a75fb35597/docs/CONFORMANCE.md", "sha256": "256b15fcc8e0e034fab34cd2e63385879b55b16abcca5ee90b97b849fcfe3fa7"}

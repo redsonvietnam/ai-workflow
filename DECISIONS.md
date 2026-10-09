@@ -86,7 +86,7 @@ Mock fixtures test parser/retry/chunking/git gate với 0 quota AI thật. Chạ
 
 ## D10. CodeLocal vo hieu hoa nut Think tren cung tab (2026-10-07)
 - **Hien tuong:** tab1 (thread architect cu da ket noi CodeLocal plugin) - nut Think co mat nhung khong toggle duoc qua automation (click/key/React handler deu chay nhung aria-pressed luon false); tab0 (thread moi, sach CodeLocal) toggle binh thuong ngay lan click dau. Nghi ban: trang thai plugin/session tren tab do trien nut Think.
-- **Giai quyet:** architect chuyen sang thread moi https://chatgpt.com/c/6ac64508-3590-83ec-805b-bfff5af66840 (T111 bootstrap PASS, Think ON). Thread cu 6ac5cc72 = archive. Context khong mat vi he thong record luon o local (CONTEXT.md, DECISIONS.md, LOG.md, wf/*).
+- **Giai quyet:** architect chuyen sang thread moi <chat-url> (T111 bootstrap PASS, Think ON). Thread cu archive. Context khong mat vi he thong record luon o local (CONTEXT.md, DECISIONS.md, LOG.md, wf/*).
 - **Quy tac cho sau:** giu tab architect SACH CodeLocal; chi tab executor/riser gan plugin. Neu Think lai tat -> suspect CodeLocal truoc.
 
 ## D11. Council T112-T115: consensus 4 muc cai thien + thu tu thuc thi (2026-10-07)
@@ -119,3 +119,9 @@ Mock fixtures test parser/retry/chunking/git gate với 0 quota AI thật. Chạ
 - **REJECT chốt:** PCM ceremony đầy đủ, worker-scope worktree, MutateProposal full schema, audit 42 test trọn, blind-first có Claude trong cặp.
 - **Giữ nguyên:** T128/T129 hoãn theo điều kiện D12; lease reference từ ai-coding-core gộp vào điều kiện mở T129 (không task mới).
 - **Roadmap:** T125→T127 (xong) → 1 task thật qua cả 3 cơ chế → audit → T131→T134 → mới đánh giá mở T128/T129.
+
+## D14. Scrub PII + re-anchor T134 (2026-10-09)
+- **Scrub PII (T148-B):** thay placeholder `<user>`, `<chat-url>`, `<workspace-path>`, `<user-home>`, `<service>`, `<id>` trong 15 file tracked (CONTEXT.md, DECISIONS.md, LOG.md, wf/t102-raw.md, t103-raw.md, t105-raw.md, t112-grok-raw.md, t134-spec.md, t134-envelope.txt, t134-pcm-constraints.md). LOG.md: chỉ sửa dòng văn xuôi, giữ nguyên dòng có eventHash.
+- **Re-anchor T134:** bundle T134 đã re-bundle đủ 9 file sau scrub. Anchor cũ `450ef9b408aa8cecb…` → anchor mới `3f8ebe64813ebc5dde25575f63a53a53a30fd806e1b7770ca4d7f4b58ae4a3c8`. Git commit trước scrub: `6712e4f`.
+- **test-t134.mjs:** SKIP exit 0 nếu file nguồn ngoài repo không tồn tại. Loại trừ test-t134 trong ci.yml đã gỡ.
+- **Giới hạn:** lịch sử git vẫn còn PII (chưa filter-repo). Quyết định: giữ nguyên history, chỉ scrub working tree.

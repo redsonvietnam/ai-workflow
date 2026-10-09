@@ -8,7 +8,7 @@ CONTEXT_REF: wf/t130-consensus.md (mục T134) + skill pcm-pwf local + repo pcm 
 INPUT: Nhiệm vụ: ra SPEC cho T134 — trích chọn lọc ràng buộc PCM, neo hash nguồn (consensus T130: KHÔNG audit 42 test trọn).
 
 NGUỒN (đã xác minh tồn tại):
-1) Skill local: C:\Users\Fesdinang\.config\opencode\skills\pcm-pwf\SKILL.md (2490 bytes, sha256 ff086e0c39ae26645e875b1460f626503e39b78ccb4bc4f97b7cf0679a1aa442).
+1) Skill local: <user-home>\.config\opencode\skills\pcm-pwf\SKILL.md (2490 bytes, sha256 ff086e0c39ae26645e875b1460f626503e39b78ccb4bc4f97b7cf0679a1aa442).
 2) Repo pcm @ HEAD ee20500ab4b4334b45e4c3fbbe6a38a75fb35597: docs/PCM.md, docs/PWF.md, docs/CONFORMANCE.md (raw.githubusercontent.com/redsonvietnam/pcm/ee20500a…/docs/<file>).
 
 ĐẦU RA: wf/t134-pcm-constraints.md — mỗi ràng buộc = (id, nguồn: file + sha256 + đoạn trích nguyên văn ≤3 dòng, ánh xạ: ràng buộc này ép cái gì trong T131 stale-check/apply và T133 dispute/BLOCKED/DEAD_LETTER). CHỈ trích cái mà T131/T133 thật sự cần (vd: observe state trước task, stale assumptions, evidence provenance, stop-for-gate/self-approve cấm, task lifecycle, canonical state check).

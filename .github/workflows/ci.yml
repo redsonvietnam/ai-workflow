@@ -29,17 +29,12 @@ jobs:
             name=$(basename "$d")
             node wf/pipeline.mjs bundle-check "$name"
           done
-      # T147: mọi test-trừ test-t134 (phụ thuộc file ngoài repo, gỡ loại trừ ở T148)
+      # T147→T148: mọi test — test-t134 đã có SKIP logic (external-source-missing → exit 0)
       - name: Tests
         shell: bash
         run: |
           set -e
           for t in wf/test-*.mjs; do
-            name=$(basename "$t")
-            if [ "$name" = "test-t134.mjs" ]; then
-              echo "SKIP $name (external-source-missing, removed in T148)"
-              continue
-            fi
             node "$t"
           done
   secrets:

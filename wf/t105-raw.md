@@ -1,4 +1,4 @@
-﻿# T105 — Executor implement (tab3 thread: https://chatgpt.com/c/6ac63252-3d5c-83ec-8216-b07878332525)
+﻿# T105 — Executor implement (tab3 thread: <chat-url>)
 
 VERDICT: PASS
 DELTA: T105 hardening implemented; fixtures PASS, deterministic 6/6, retry success/fail verified.

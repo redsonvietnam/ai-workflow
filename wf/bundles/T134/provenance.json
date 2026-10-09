@@ -1,12 +1,12 @@
 {
   "taskId": "T134",
   "attemptId": 0,
-  "createdAt": "2026-10-07T22:03:56.447Z",
-  "gitCommit": "62270109ad81a22fe234122e5c61c1bcdc1081ef",
+  "createdAt": "2026-10-09T02:07:50.175Z",
+  "gitCommit": "6712e4f1fbd5274de5da9484cf422ab7112c8219",
   "files": [
     {
       "path": "wf/t134-spec.md",
-      "sha256": "f739504d7117377fe0b647ceec8c6995e1b7fa056683a98fdb3f8f8ddd98ca37"
+      "sha256": "f15f42fc4b14d15b58f70375fde9781882551d991fc32db2a81b036bafad2b3e"
     },
     {
       "path": "wf/t134-raw.md",
@@ -18,7 +18,7 @@
     },
     {
       "path": "wf/t134-envelope.txt",
-      "sha256": "7715529d4961cd4b772f4df4a2c7abaf64bfb3f7f0a9d0966bd8b6654d010c11"
+      "sha256": "7d2943bb39d5379c97219909ec8c2c5be26acfef323dcb983f15720398b0509e"
     },
     {
       "path": "wf/t134-envelope-exec.txt",
@@ -34,12 +34,12 @@
     },
     {
       "path": "wf/t134-pcm-constraints.md",
-      "sha256": "7c5409c4c0e02757487f73e1da323ba5a1a1bc91d524c4a114f53c7c45885261"
+      "sha256": "a020c8d637c2c39e0a716f9e114ad69cab646a519ada9e4b60826148c25297b6"
     },
     {
       "path": "wf/test-t134.mjs",
-      "sha256": "221c2731017f07163943c7b671d17a4e1d555e878e0800a91246143ae3e035e4"
+      "sha256": "93a31614beb725a7275d2b530bbe8fdd8b9e7ce2d8ee70777f13417b528b2449"
     }
   ],
-  "anchor": "450ef9b408aa8cecb169d5f2c225367946b84ed1e18ee681c66e4c42b9205b5b"
+  "anchor": "3f8ebe64813ebc5dde25575f63a53a53a30fd806e1b7770ca4d7f4b58ae4a3c8"
 }

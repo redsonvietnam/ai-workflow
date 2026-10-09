@@ -1,4 +1,4 @@
-﻿## Grok round 1 (thread aea5bb31-8412-437c-ae94-2d6f6e6c4fcc, user Son Red)
+﻿## Grok round 1 (thread <chat-url>, user <user>)
 - 1) Schema gate: DONG Y - validate truoc, bat loi som
 - 2) Lease/state machine: DONG Y - chan task bi quen (thuc te voi free-tier timeout/adapter chet)
 - 3) Acceptance-contract gate: DONG Y - spec co acceptance ro truoc khi code

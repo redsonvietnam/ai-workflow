@@ -6,7 +6,7 @@ Cập nhật lần đầu: 2026-10-07
 - **opencode** (mimo-v2.6, local Windows): control plane — router, executor, hash/SEQ, escalation gate, ghi state.
 - **ChatGPT** (tab0, free, quota rộng): primary reasoning/execution.
 - **Claude** (tab1, free Sonnet 5.5, quota ít): conditional reviewer CHỈ khi escalate.
-- **Human** (Fesdinang): scope + gate + duyệt.
+- **Human** (<user>): scope + gate + duyệt.
 
 ## Kiến trúc V1 (đã chốt — xem DECISIONS.md)
 
@@ -28,7 +28,7 @@ HUMAN → scope/gate
 - **V1.5 checklist bước 1-7 DONE**, merge vào main (4566e88). CodeLocal probe PASS (14 tools, Apache-2.0).
 - **V2 test DONE (2026-10-07):** T101 read PASS, T102 write PASS (executionMode=live do user chọn; schema mismatch gateway/plugin — điều kiện bỏ ở D9), T103 escalation Claude PASS (claude_calls=1). Evidence: wf/t101-*, wf/t102-*, wf/t103-*.
 - **T104/T105 (2026-10-07):** harden pipeline HOÀN THÀNH qua phân vai architect→executor — verifyReply, decideVerdict, byte accounting, 9 fixtures PASS (main=b96e8c8). Còn: fallback inbox/outbox dry test; wire byte-accounting vào relay thật.
-- Session exam mobifone: đã logout (task thi đã xong — xem LOG.md mục Exam).
+- Session exam <service>: đã logout (task thi đã xong — xem LOG.md mục Exam).
 - **Council T112-T115 (2026-10-07):** 4 model thảo luận — ChatGPT-architect (Think) × Grok shuttle 2 vòng, Claude chấm 7/8, chốt consensus 4 mục (wf/t112-consensus.md). **T116-T119 IMPLEMENTED** (D11): C4 observability (terminal transition+finalHash, payload strip), C3 idempotent replay (dedupe LOG), C2 acceptance-contract gate (`gate` exit 0/3), C1 state machine đơn giản (reapStale timeout/attempts/DEAD_LETTER). Executor blocked 2 lần ở T119 → fallback local. **Phase 2 HOÀN THÀNH (2026-10-07): T121 schema gate (`validate` exit 2, wf/v1.schema.json), T122 escalation budget (1/task, 2/ngày, `escalation` exit 3 HUMAN_REQUIRED), T123 hash-chain (prevHash/eventHash canonical, `verifychain` exit 4 tamper detect — main=1ca1284).**
 - **T124 council — tích hợp từ repo ai-orchestrator (2026-10-07, D12):** opencode đọc repo (root browser-use + experiments/META-WF-V1) → architect đề xuất 5 → Claude REVISE → Grok PASS+2 bổ sung → chốt consensus (wf/t124-consensus.md). **T125-T127 ĐÃ IMPLEMENT:** T125 prereg freeze (`prereg freeze/check`, exit 5, gate PREREG_MISMATCH), T126 independent verifier (`wf/verify-standalone.mjs` process riêng, `standalone` exit 6 FAIL-CLOSED, gate đọc verdict file), T127 evidence bundle (`bundle/bundle-check`, SHA256SUMS+provenance anchor/gitCommit, exit 7) — main=3798b16. T128/T129 = có điều kiện (điều kiện bỏ ghi trong consensus). **Bước kế: chạy 1 task thật qua cả 3 rồi audit.** Ghi chú kỹ thuật: tạo envelope qua node script (pipe PS5.1 làm mojibake unicode); CodeLocal 2 lần/task → fallback local.
 - **Council T130 (2026-10-07, D13):** đánh giá 3 repo upstream của user (`workflow-lab`, `ai-coding-core`, `pcm`) — đọc qua raw.githubusercontent + GitHub API (GitHub MCP không có trong session, KHÔNG clone) → architect PASS (SEQ1) → Claude REVISE (SEQ2, lượt Claude duy nhất T130 = 1/1) → Grok PASS + 2 bổ sung (SEQ3) → architect chốt PASS (SEQ4). Consensus: T131 stale-check trước APPLY (tái hiện lỗi + revalidate nguyên tử) → T132 blind-first CHỈ cặp ChatGPT+Grok → T133 phân loại disagreement + BLOCKED → T134 trích chọn lọc ràng buộc PCM + neo hash nguồn; D13: opencode permission deny/ask ≠ firewall (probe ACP), enforce bằng branch `wf/*` + pre-commit; REJECT: PCM ceremony/worktree/MutateProposal full/42-test trọn/Claude trong blind pair. Evidence: wf/t130-consensus.md + t130-{raw,claude-raw,grok-raw,round3-raw}.md. **Bước kế: chạy 1 task thật qua cả 3 rồi audit → T131→T134.**
@@ -40,13 +40,13 @@ HUMAN → scope/gate
 - **T131→T134 HOÀN TẤT (2026-10-07):** 4/4 task đã commit sạch + push (T131 `51686ed`, T133 `95cf152`+`134dd75`, T132 `6227010`, T134 pending commit). CodeLocal **DEGRADED 4 lần liên tiếp** → 3 task fallback local; consensus T132 `PREFER:d` = ưu tiên sửa executor path. **Bước kế: theo consensus T132 — tái hiện lỗi "routable workspace path" bằng fixture tối thiểu, xác định path contract, đặt acceptance test fail-closed.**
 - **T137 fix flaky KioskQueuePeek (2026-10-08):** architect spec PASS → executor (tab mới, CodeLocal policy-block lệnh ngoài verification → 2 SEQ fallback local) diagnose root cause: test 6 `await import('@/app/kiosk/page')` kéo full dependency graph dưới Vitest parallel (timeout 6211ms, chạy riêng PASS) → patch test-only `readFileSync(path.join(process.cwd(),...))` + 3 assertion contract, không tăng timeout, không sửa production (`fcdf562` đã push). Gate verify độc lập 4/4 PASS + 4× full suite GREEN (625 tests). Flaky (b) `audit-service` chưa reproduce → theo dõi. Evidence: `wf/t137-{spec,result}.md`.
 - **T138/T139 BAMSO dọn dở trước khi user rời máy (2026-10-08):** architect T138 phân loại (LÀM NGAY: fix flaky b + docs stale + PNG; KHÔNG KỊP: UAT vật lý + production) → T139 executor CodeLocal **lease FAIL** (streak) → fallback local: `audit-service.test.ts` scope cleanup/asserts theo marker riêng (targeted 13/13, type-check/lint/build PASS, full suite GREEN ×3) + update HANDOFF/ROADMAP stale + gitignore PNG → BAMSO commit `eeb9f59`+`39dcb24`+`180cf4a` **đã push**; working tree sạch. Ghi chú chính sách tab (2 tab mặc định, escalate Claude khi fail) chờ thảo luận: `wf/tab-policy-proposal.md`.
-- **Grok đã kết nối** (tab4, user Son Red): thread T112 https://grok.com/c/aea5bb31-8412-437c-ae94-2d6f6e6c4fcc
+- **Grok đã kết nối** (tab4, user <user>): thread T112 <chat-url>
 
 ## Liên hệ nhanh
-- **ChatGPT-architect** (context hub, tab0 — Think ON): https://chatgpt.com/c/6ac64508-3590-83ec-805b-bfff5af66840
-- **ChatGPT-architect cũ** (archive — CodeLocal đã vô hiệu hóa Think trên tab này, T111 bootstrap sang thread mới): https://chatgpt.com/c/6ac5cc72-166c-83ec-adba-0c647ab76511
-- **ChatGPT-executor** (thực thi qua CodeLocal, tab3): https://chatgpt.com/c/6ac63252-3d5c-83ec-8216-b07878332525
-- **Claude** (escalation thật sự cần, tab2): https://claude.ai/chat/543d7115-27b3-48ce-a190-f42bb4d66e0d
+- **ChatGPT-architect** (context hub, tab0 — Think ON): <chat-url>
+- **ChatGPT-architect cũ** (archive — CodeLocal đã vô hiệu hóa Think trên tab này, T111 bootstrap sang thread mới): <chat-url>
+- **ChatGPT-executor** (thực thi qua CodeLocal, tab3): <chat-url>
+- **Claude** (escalation thật sự cần, tab2): <chat-url>
 - Gemini **đã kết nối** (tab5, đăng nhập sẵn, input hoạt động) https://gemini.google.com/app — dự phòng quota. Grok = đã kết nối (tab4).
 
 ## Phân vai (2026-10-07, user chỉ đạo)
