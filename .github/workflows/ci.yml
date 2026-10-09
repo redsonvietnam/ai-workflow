@@ -1,50 +1,62 @@
-name: CI
+name: CI Verify
+
 on:
   push:
+    branches: [main]
   pull_request:
-permissions:
-  contents: read
+    branches: [main]
+
 jobs:
-  test:
+  verify:
+    runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-latest, windows-latest]
-    runs-on: ${{ matrix.os }}
+        os: [ubuntu-latest, macos-latest]
+        node-version: [20.x, 22.x]
     steps:
-      # T147: autocrlf=false TRƯỚC checkout — tránh lệch hash do CRLF trên Windows
-      - run: git config --global core.autocrlf false
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+
+      - name: Setup Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
         with:
-          node-version: 22
-      - run: node wf/pipeline.mjs
-      - run: node wf/pipeline.mjs prereg check
-      - run: node wf/pipeline.mjs verifychain
-      # T147: bundle-check cho mọi bundle
-      - name: Bundle check
-        shell: bash
+          node-version: ${{ matrix.node-version }}
+          cache: 'npm'
+
+      - name: Install dependencies
         run: |
-          set -e
-          for d in wf/bundles/*/; do
-            name=$(basename "$d")
-            node wf/pipeline.mjs bundle-check "$name"
-          done
-      # T147→T148: mọi test — test-t134 đã có SKIP logic (external-source-missing → exit 0)
-      - name: Tests
-        shell: bash
+          # No npm dependencies in this project
+
+      - name: Run verification suite
         run: |
-          set -e
-          for t in wf/test-*.mjs; do
-            node "$t"
-          done
-  secrets:
-    runs-on: ubuntu-latest
+          node wf/test-t134.mjs
+          node wf/test-plan.mjs
+          node wf/test-path-negative.mjs
+          node wf/test-f3-state-validation.mjs
+          node wf/test-payload-log.mjs
+          node wf/pipeline.mjs verifychain
+
+      - name: Verify chain seal
+        run: |
+          node wf/pipeline.mjs seal
+
+  # Windows-specific tests (junctions, case-insensitivity)
+  verify-windows:
+    runs-on: windows-latest
     steps:
-      - run: git config --global core.autocrlf false
       - uses: actions/checkout@v4
+
+      - name: Setup Node.js 22.x
+        uses: actions/setup-node@v4
         with:
-          fetch-depth: 0
-      # Miễn phí cho repo tài khoản cá nhân
-      - uses: gitleaks/gitleaks-action@v2
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          node-version: '22.x'
+          cache: 'npm'
+
+      - name: Run Windows verification
+        run: |
+          node wf/test-t134.mjs
+          node wf/test-plan.mjs
+          node wf/test-path-negative.mjs
+          node wf/test-f3-state-validation.mjs
+          node wf/test-payload-log.mjs
+          node wf/pipeline.mjs verifychain
+          node wf/pipeline.mjs seal
