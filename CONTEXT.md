@@ -23,8 +23,8 @@ HUMAN → scope/gate
 ## Trạng thái hiện tại
 - Branch: `wf/t143-secret-gate`. HEAD = origin = `87c8818` (T148).
 - T145 SEAL LOG, T146 executor inbox/outbox, T147 CI, T148 scrub PII: **đã push**.
-- **Đang làm:** T149 (rút gọn CONTEXT, docs/history.md, D14 [PROPOSED]).
-- **Còn lại:** T150 (CREATED, chưa có spec), T145-B (seal LOG thật — chờ phê duyệt riêng).
+- **Đang làm:** T150 (CREATED — cleanup state, spec wf/t150-spec.md).
+- **Còn lại:** T145-B (seal LOG thật — chờ phê duyệt riêng).
 - CodeLocal: DEGRADED 4 lần → fallback local. Consensus T132: ưu tiên sửa executor path.
 - Lịch sử chi tiết: `docs/history.md`.
 
