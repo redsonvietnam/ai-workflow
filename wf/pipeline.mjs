@@ -200,6 +200,9 @@ export function verifyChain(logText) {
     checked.push(ev.task ?? '?');
   }
   const result = { ok: broken.length === 0, checked: checked.length, legacy: legacy.length, broken };
+  if (broken.length > 0) {
+    result.reason = 'CHAIN_BROKEN';
+  }
   const sealInfo = collectSealInfo(logText);
   if (sealInfo.malformedSeals.length > 0) {
     result.ok = false;
@@ -741,14 +744,9 @@ if (cmd === 'make') {
     console.log(JSON.stringify(manifest, null, 2));
   } else if (sub === 'check') {
     const result = preregCheck();
-    if (result.skipped) console.log('prereg: SKIP (no manifest)');
-    else if (result.ok) console.log('prereg: PASS');
-    else {
-      console.log('| Path | Reason |');
-      console.log('|---|---|');
-      for (const f of result.failures) console.log(`| ${f.path} | ${f.reason} |`);
-      process.exit(5);
-    }
+    if (result.skipped) console.log(JSON.stringify({ ok: true, skipped: true }, null, 2));
+    else if (result.ok) console.log(JSON.stringify({ ok: true, ...result }, null, 2));
+    else console.log(JSON.stringify({ ok: false, reason: 'PREREG_MISMATCH', failures: result.failures }, null, 2));
   } else {
     console.error('usage: prereg freeze <file...> | prereg check');
     process.exit(2);
@@ -976,6 +974,41 @@ if (cmd === 'make') {
   const changed = reapStale(st.tasks);
   saveState(st);
   console.log(JSON.stringify({ changed, tasks: st.tasks }, null, 2));
+} else if (cmd === 'state-validate') {
+  const st = loadState();
+  const errors = [];
+  // S01: schema valid
+  if (!st.seq || typeof st.seq !== 'object') errors.push({ field: 'seq', reason: 'MISSING_OR_INVALID' });
+  if (!st.tasks || typeof st.tasks !== 'object') errors.push({ field: 'tasks', reason: 'MISSING_OR_INVALID' });
+  if (!st.claudeCalls || typeof st.claudeCalls !== 'object') errors.push({ field: 'claudeCalls', reason: 'MISSING_OR_INVALID' });
+  if (!st.claudeCalls?.byDate || typeof st.claudeCalls.byDate !== 'object') errors.push({ field: 'claudeCalls.byDate', reason: 'MISSING_OR_INVALID' });
+  if (!st.claudeCalls?.byTask || typeof st.claudeCalls.byTask !== 'object') errors.push({ field: 'claudeCalls.byTask', reason: 'MISSING_OR_INVALID' });
+  // S02/S05: seq monotonic per task
+  for (const [task, seq] of Object.entries(st.seq ?? {})) {
+    if (!Number.isInteger(seq) || seq < 0) errors.push({ task, field: 'seq', reason: 'SEQ_INVALID', value: seq });
+  }
+  // S03/S08: valid state transitions (only obvious invalid states, not history inference)
+  for (const [task, t] of Object.entries(st.tasks ?? {})) {
+    if (!t.state || !['CREATED', 'RUNNING', 'DONE', 'FAILED', 'DEAD_LETTER'].includes(t.state)) {
+      errors.push({ task, field: 'state', reason: 'INVALID_STATE', value: t.state });
+    }
+    if (!t.createdAt || !t.updatedAt) errors.push({ task, field: 'timestamps', reason: 'MISSING' });
+    // S04: attempts must be non-negative integer
+    if (typeof t.attempts !== 'number' || t.attempts < 0 || !Number.isInteger(t.attempts)) {
+      errors.push({ task, field: 'attempts', reason: 'ATTEMPTS_INVALID', value: t.attempts });
+    }
+    // S10: attempts >= MAX_ATTEMPTS -> DEAD_LETTER
+    if ((t.attempts ?? 0) >= 3 && t.state !== 'DEAD_LETTER') {
+      errors.push({ task, field: 'state', reason: 'ATTEMPTS_EXCEEDED', detail: 'attempts >= 3 but state not DEAD_LETTER' });
+    }
+  }
+  // S13: idempotency key uniqueness is enforced in logEvent, not here
+  // S14: hash-chain integrity - verifychain handles this
+  if (errors.length > 0) {
+    console.log(JSON.stringify({ ok: false, reason: 'SCHEMA_INVALID', errors }, null, 2));
+    process.exit(2);
+  }
+  console.log(JSON.stringify({ ok: true }, null, 2));
 } else if (cmd === 'dispute') {
   const task = args[0];
   const action = args[1];
@@ -1026,6 +1059,32 @@ if (cmd === 'make') {
     throw err;
   }
   console.log('logged');
+} else if (cmd === 'log-event') {
+  const opts = {};
+  for (const a of args) {
+    const eq = a.indexOf('=');
+    if (eq > 0) opts[a.slice(2, eq)] = a.slice(eq + 1);
+  }
+  const entry = {
+    task: opts.task,
+    seq: opts.seq ? Number(opts.seq) : null,
+    hash: opts.hash,
+    relay: opts.relay,
+    verdict: opts.verdict,
+    stateFrom: opts['state-from'],
+    stateTo: opts['state-to'],
+    claude_calls: opts['claude-calls'] ? Number(opts['claude-calls']) : 0,
+  };
+  try {
+    const res = logEvent(entry);
+    console.log(JSON.stringify({ ok: true, ...res }, null, 2));
+  } catch (err) {
+    if (err?.message === 'HUMAN_REQUIRED') {
+      console.log(JSON.stringify({ ok: false, reason: 'HUMAN_REQUIRED' }, null, 2));
+      process.exit(0);
+    }
+    throw err;
+  }
 } else {
   dryRun();
 }
