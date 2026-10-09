@@ -78,49 +78,49 @@ const m4 = runMake(ROOT, 'wf/sub/exist.md');
 checkOutcomeMake(m4, 'SUCCESS', 'L04-make-success');
 
 // ===== APPLY branches =====
-const a1 = run(ROOT, ['apply']);
-checkOutcome(r, 'NO_PLAN', 'L05-apply-no-plan');
+const r5 = run(ROOT, ['apply']);
+checkOutcome(r5, 'NO_PLAN', 'L05-apply-no-plan');
 
 writeFileSync(join(ROOT, 'bad.json'), '{not json');
-const a2 = run(ROOT, ['apply', join(ROOT, 'bad.json')]);
-checkOutcome(a2, 'PLAN_MALFORMED', 'L06-apply-plan-malformed');
+const r6 = run(ROOT, ['apply', join(ROOT, 'bad.json')]);
+checkOutcome(r6, 'PLAN_MALFORMED', 'L06-apply-plan-malformed');
 
-const a3 = planRun(ROOT, []);
-checkOutcome(a3, 'PLAN_EMPTY', 'L07-apply-plan-empty');
+const r7 = planRun(ROOT, []);
+checkOutcome(r7, 'PLAN_EMPTY', 'L07-apply-plan-empty');
 
-const a4 = planRun(ROOT, [{ before_sha256: null, content: 'x' }]);
-checkOutcome(a4, 'ENTRY_INVALID', 'L08-apply-entry-invalid-path');
+const r8 = planRun(ROOT, [{ before_sha256: null, content: 'x' }]);
+checkOutcome(r8, 'ENTRY_INVALID', 'L08-apply-entry-invalid-path');
 
-const a5 = planRun(ROOT, [{ path: 'wf/x.txt', before_sha256: 'bad', content: 'x' }]);
-checkOutcome(a5, 'ENTRY_INVALID', 'L09-apply-entry-invalid-sha');
+const r9 = planRun(ROOT, [{ path: 'wf/x.txt', before_sha256: 'bad', content: 'x' }]);
+checkOutcome(r9, 'ENTRY_INVALID', 'L09-apply-entry-invalid-sha');
 
-const a6 = planRun(ROOT, [{ path: '../escape.txt', before_sha256: null, content: 'x' }]);
-checkOutcome(a6, 'TRAVERSAL', 'L10-apply-traversal');
+const r10 = planRun(ROOT, [{ path: '../escape.txt', before_sha256: null, content: 'x' }]);
+checkOutcome(r10, 'TRAVERSAL', 'L10-apply-traversal');
 
-const a7 = planRun(ROOT, [{ path: 'wf/.env', before_sha256: null, content: 'x' }]);
-checkOutcome(a7, 'BLOCKED_PATH', 'L11-apply-blocked-path');
+const r11 = planRun(ROOT, [{ path: 'wf/.env', before_sha256: null, content: 'x' }]);
+checkOutcome(r11, 'BLOCKED_PATH', 'L11-apply-blocked-path');
 
-const a8 = planRun(ROOT, [{ path: 't160-root.txt', before_sha256: null, content: 'x' }]);
-checkOutcome(a8, 'NOT_ALLOWED', 'L12-apply-not-allowed');
+const r12 = planRun(ROOT, [{ path: 't160-root.txt', before_sha256: null, content: 'x' }]);
+checkOutcome(r12, 'NOT_ALLOWED', 'L12-apply-not-allowed');
 
-const a9 = planRun(ROOT, [{ path: 'wf/missing-content.txt', before_sha256: null, contentPath: 'wf/missing-content.txt' }]);
-checkOutcome(a9, 'CONTENT_UNREADABLE', 'L13-apply-content-unreadable');
+const r13 = planRun(ROOT, [{ path: 'wf/missing-content.txt', before_sha256: null, contentPath: 'wf/missing-content.txt' }]);
+checkOutcome(r13, 'CONTENT_UNREADABLE', 'L13-apply-content-unreadable');
 
-const a10 = planRun(ROOT, [{ path: 'wf/no-content.txt', before_sha256: null }]);
-checkOutcome(a10, 'ENTRY_NO_CONTENT', 'L14-apply-entry-no-content');
+const r14 = planRun(ROOT, [{ path: 'wf/no-content.txt', before_sha256: null }]);
+checkOutcome(r14, 'ENTRY_NO_CONTENT', 'L14-apply-entry-no-content');
 
 check('L15-apply-locked-branch', true, 'branch exists in code');
 
 writeFileSync(join(ROOT, 'wf', 'stale.txt'), 'old-content');
-const a12 = planRun(ROOT, [{ path: 'wf/stale.txt', before_sha256: '0'.repeat(64), content: 'new' }]);
-checkOutcome(a12, 'STALE_REJECT', 'L16-apply-stale-reject');
+const r15 = planRun(ROOT, [{ path: 'wf/stale.txt', before_sha256: '0'.repeat(64), content: 'new' }]);
+checkOutcome(r15, 'STALE_REJECT', 'L16-apply-stale-reject');
 
 mkdirSync(join(ROOT, 'wf', 'adir'), { recursive: true });
-const a13 = planRun(ROOT, [{ path: 'wf/adir', before_sha256: null, content: 'x' }]);
-checkOutcome(a13, 'APPLY_ERROR', 'L17-apply-error');
+const r16 = planRun(ROOT, [{ path: 'wf/adir', before_sha256: null, content: 'x' }]);
+checkOutcome(r16, 'APPLY_ERROR', 'L17-apply-error');
 
-const a14 = planRun(ROOT, [{ path: 'wf/success.txt', before_sha256: null, content: 'ok' }]);
-checkOutcome(a14, 'SUCCESS', 'L18-apply-success');
+const r17 = planRun(ROOT, [{ path: 'wf/success.txt', before_sha256: null, content: 'ok' }]);
+checkOutcome(r17, 'SUCCESS', 'L18-apply-success');
 
 try { rmSync(ROOT, { recursive: true, force: true }); } catch { /* */ }
 

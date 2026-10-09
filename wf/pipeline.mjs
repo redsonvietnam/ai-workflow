@@ -27,6 +27,23 @@ function saveState(s) {
 export function sha256(s) { return createHash('sha256').update(s, 'utf8').digest('hex'); }
 const WIN = process.platform === 'win32';
 const norm = (p) => WIN ? p.replace(/\\/g, '/').toLowerCase() : p.replace(/\\/g, '/');
+
+// F2: wrapper log outcome+reason + điểm thoát duy nhất
+function logOutcome(outcome, reason, extra = {}) {
+  console.error(JSON.stringify({ outcome, reason, ...extra }));
+}
+function writeOutAndExit(obj, code = 0) {
+  process.stdout.write(JSON.stringify(obj, null, 2) + '\n');
+  process.exit(code);
+}
+function exitWith(reason, extra = {}, code = 2) {
+  logOutcome('ERROR', reason, extra);
+  writeOutAndExit({ ok: false, reason, ...extra }, code);
+}
+function successOutcome(written = []) {
+  logOutcome('SUCCESS', 'SUCCESS', { written });
+  writeOutAndExit({ ok: true, written }, 0);
+}
 // containment theo thành phần đường dẫn — không false-positive '..notes' (review ChatGPT)
 function escapesRoot(rel) {
   if (rel === '' || isAbsolute(rel)) return true;
@@ -644,8 +661,8 @@ if (cmd === 'make') {
     const fileLines = [];
     for (const fp of o.files.split(',')) {
       const v = validateWorkspacePath(fp);
-      if (!v.ok) { console.error(`${v.reason}: ${fp}`); process.exit(2); }
-      if (!existsSync(v.abs)) { console.error(`FILE_MISSING: ${fp}`); process.exit(2); }
+      if (!v.ok) exitWith(v.reason, { path: fp });
+      if (!existsSync(v.abs)) exitWith('FILE_MISSING', { path: fp });
       fileLines.push(`FILE_SHA256: ${fp}=${sha256(readFileSync(v.abs))}`);
     }
     input = fileLines.join('\n') + '\n' + input;
@@ -653,6 +670,7 @@ if (cmd === 'make') {
   const { envelope, hash, seq } = makeEnvelope({ task: o.task, role: o.role || 'CHATGPT', objective: o.objective, ask: o.ask, input, contextRef: o.contextRef || '', constraints: o.constraints ? o.constraints.split('|') : [] });
   console.log(envelope);
   console.error(`HASH=${hash} SEQ=${seq}`);
+  successOutcome();
 } else if (cmd === 'parse') {
   const file = args[0];
   const opts = {};
@@ -736,9 +754,8 @@ if (cmd === 'make') {
     process.exit(2);
   }
 } else if (cmd === 'apply') {
-  // T131: stale-check nguyên tử trước APPLY — lock wx → revalidate toàn bộ → temp+rename.
   const planPath = args[0];
-  const bail = (reason, extra = {}, code = 2) => { console.log(JSON.stringify({ ok: false, reason, ...extra }, null, 2)); process.exit(code); };
+  const bail = (reason, extra = {}, code = 2) => { exitWith(reason, extra, code); };
   if (!planPath) bail('NO_PLAN');
   let plan;
   try { plan = JSON.parse(readFileSync(planPath, 'utf8')); } catch { bail('PLAN_MALFORMED'); }
@@ -795,8 +812,8 @@ if (cmd === 'make') {
     try { if (fd !== null) closeSync(fd); } catch { /* bỏ qua */ }
     try { if (existsSync(LOCK)) unlinkSync(LOCK); } catch { /* bỏ qua */ }
   }
-  console.log(JSON.stringify(result, null, 2));
-  process.exit(exitCode);
+  if (result.ok) { successOutcome(result.written); }
+  else { exitWith(result.reason, result, exitCode); }
 } else if (cmd === 'plan-extract') {
   const file = args[0];
   if (!file || !existsSync(file)) { console.log(JSON.stringify({ ok: false, reason: 'PLAN_NOT_FOUND' }, null, 2)); process.exit(2); }
