@@ -3,3 +3,7 @@
 *.log
 .scratch/
 node_modules/
+
+# Payload logs - do not commit (may contain sensitive patch content)
+wf/logs/*
+!wf/logs/.gitkeep
