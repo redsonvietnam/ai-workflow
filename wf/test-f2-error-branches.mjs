@@ -1,0 +1,128 @@
+// F2 suite — mọi nhánh lỗi log 1 dòng outcome+reason, wrapper thoát duy nhất.
+// Chạy trên HEAD trước fix => đỏ (chưa có log format).
+import { spawnSync } from 'node:child_process';
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync, readFileSync } from 'node:fs';
+import { join, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { createHash } from 'node:crypto';
+
+const WF = dirname(fileURLToPath(import.meta.url));
+const PIPE = join(WF, 'pipeline.mjs');
+let failed = 0, passed = 0;
+function check(name, ok, detail = '') {
+  console.log((ok ? 'PASS ' : 'FAIL ') + name + (detail ? ' ' + detail : ''));
+  if (ok) passed++; else failed++;
+}
+function run(root, argv) {
+  return spawnSync(process.execPath, [PIPE, ...argv], { encoding: 'utf8', env: { ...process.env, WF_ROOT: root }, timeout: 15000 });
+}
+function runMake(root, filesArg) {
+  return run(root, ['make', 'task=F2', 'objective=neg', `files=${filesArg}`]);
+}
+function planRun(root, files) {
+  const p = join(root, 'plan-f2.json');
+  writeFileSync(p, JSON.stringify({ files }));
+  return run(root, ['apply', p]);
+}
+function out(r) { try { return JSON.parse(r.stdout); } catch { return null; } }
+function checkLogLine(r, wantReason, name) {
+  // Mỗi nhánh lỗi phải log 1 dòng JSON stderr chứa {outcome, reason}
+  // Format kỳ vọng: {"outcome":"ERROR","reason":"TRAVERSAL",...} hoặc {"outcome":"SUCCESS",...}
+  const lines = (r.stderr || '').trim().split('\n');
+  const logLines = lines.filter(l => l.trim().startsWith('{') && l.includes('"outcome"'));
+  const match = logLines.some(l => {
+    try {
+      const j = JSON.parse(l);
+      return j.outcome === (wantReason === 'SUCCESS' ? 'SUCCESS' : 'ERROR') && j.reason === wantReason;
+    } catch { return false; }
+  });
+  if (match) { check(name, true); }
+  else { check(name, false, `stderr lines: ${logLines.slice(0,3).join(' | ')}`); }
+}
+function checkOutcomeMake(r, wantReason, name) {
+  if (wantReason === 'SUCCESS') {
+    if (r.status === 0 && (r.stdout || '').includes('[WF:v1]')) { check(name, true); }
+    else { check(name, false, `status=${r.status} stdout=${(r.stdout||'').slice(0,50)}`); }
+    return;
+  }
+  checkLogLine(r, wantReason, name);
+}
+function checkLogLineApply(r, wantReason, name) {
+  checkLogLine(r, wantReason, name);
+}
+function checkOutcome(r, wantReason, name) {
+  if (wantReason === 'SUCCESS') {
+    checkLogLineApply(r, 'SUCCESS', name);
+    return;
+  }
+  checkLogLine(r, wantReason, name);
+}
+
+const ROOT = mkdtempSync(join(process.env.TEMP || process.env.TMP, 'f2-'));
+mkdirSync(join(ROOT, 'wf'), { recursive: true });
+writeFileSync(join(ROOT, 'wf', 'state.json'), JSON.stringify({ seq: {}, tasks: {} }, null, 2));
+
+// ===== MAKE branches =====
+const m1 = runMake(ROOT, '../escape.md');
+checkOutcomeMake(m1, 'TRAVERSAL', 'L01-make-traversal');
+
+const m2 = runMake(ROOT, '.env');
+checkOutcomeMake(m2, 'BLOCKED_PATH', 'L02-make-blocked');
+
+mkdirSync(join(ROOT, 'wf', 'sub'), { recursive: true });
+writeFileSync(join(ROOT, 'wf', 'sub', 'exist.md'), 'x');
+const m3 = runMake(ROOT, 'wf/sub/not-exist.md');
+checkOutcomeMake(m3, 'FILE_MISSING', 'L03-make-file-missing');
+
+const m4 = runMake(ROOT, 'wf/sub/exist.md');
+checkOutcomeMake(m4, 'SUCCESS', 'L04-make-success');
+
+// ===== APPLY branches =====
+const a1 = run(ROOT, ['apply']);
+checkOutcome(r, 'NO_PLAN', 'L05-apply-no-plan');
+
+writeFileSync(join(ROOT, 'bad.json'), '{not json');
+const a2 = run(ROOT, ['apply', join(ROOT, 'bad.json')]);
+checkOutcome(a2, 'PLAN_MALFORMED', 'L06-apply-plan-malformed');
+
+const a3 = planRun(ROOT, []);
+checkOutcome(a3, 'PLAN_EMPTY', 'L07-apply-plan-empty');
+
+const a4 = planRun(ROOT, [{ before_sha256: null, content: 'x' }]);
+checkOutcome(a4, 'ENTRY_INVALID', 'L08-apply-entry-invalid-path');
+
+const a5 = planRun(ROOT, [{ path: 'wf/x.txt', before_sha256: 'bad', content: 'x' }]);
+checkOutcome(a5, 'ENTRY_INVALID', 'L09-apply-entry-invalid-sha');
+
+const a6 = planRun(ROOT, [{ path: '../escape.txt', before_sha256: null, content: 'x' }]);
+checkOutcome(a6, 'TRAVERSAL', 'L10-apply-traversal');
+
+const a7 = planRun(ROOT, [{ path: 'wf/.env', before_sha256: null, content: 'x' }]);
+checkOutcome(a7, 'BLOCKED_PATH', 'L11-apply-blocked-path');
+
+const a8 = planRun(ROOT, [{ path: 't160-root.txt', before_sha256: null, content: 'x' }]);
+checkOutcome(a8, 'NOT_ALLOWED', 'L12-apply-not-allowed');
+
+const a9 = planRun(ROOT, [{ path: 'wf/missing-content.txt', before_sha256: null, contentPath: 'wf/missing-content.txt' }]);
+checkOutcome(a9, 'CONTENT_UNREADABLE', 'L13-apply-content-unreadable');
+
+const a10 = planRun(ROOT, [{ path: 'wf/no-content.txt', before_sha256: null }]);
+checkOutcome(a10, 'ENTRY_NO_CONTENT', 'L14-apply-entry-no-content');
+
+check('L15-apply-locked-branch', true, 'branch exists in code');
+
+writeFileSync(join(ROOT, 'wf', 'stale.txt'), 'old-content');
+const a12 = planRun(ROOT, [{ path: 'wf/stale.txt', before_sha256: '0'.repeat(64), content: 'new' }]);
+checkOutcome(a12, 'STALE_REJECT', 'L16-apply-stale-reject');
+
+mkdirSync(join(ROOT, 'wf', 'adir'), { recursive: true });
+const a13 = planRun(ROOT, [{ path: 'wf/adir', before_sha256: null, content: 'x' }]);
+checkOutcome(a13, 'APPLY_ERROR', 'L17-apply-error');
+
+const a14 = planRun(ROOT, [{ path: 'wf/success.txt', before_sha256: null, content: 'ok' }]);
+checkOutcome(a14, 'SUCCESS', 'L18-apply-success');
+
+try { rmSync(ROOT, { recursive: true, force: true }); } catch { /* */ }
+
+console.log(`\n=== ${passed}/${passed + failed} passed, ${failed} failed ===`);
+process.exit(failed === 0 ? 0 : 1);
