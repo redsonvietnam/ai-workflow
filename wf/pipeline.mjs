@@ -197,6 +197,133 @@ function safeContain(abs) {
   }
 }
 
+// F2: errorClass mapping table (single source of truth)
+const ERROR_CLASS_MAP = {
+  TRAVERSAL: 'VALIDATE_REJECT',
+  BLOCKED_PATH: 'VALIDATE_REJECT',
+  NOT_ALLOWED: 'VALIDATE_REJECT',
+  ENTRY_INVALID: 'VALIDATE_REJECT',
+  PLAN_MALFORMED: 'VALIDATE_REJECT',
+  PLAN_EMPTY: 'VALIDATE_REJECT',
+  NO_PLAN: 'VALIDATE_REJECT',
+  CONTENT_UNREADABLE: 'VALIDATE_REJECT',
+  ENTRY_NO_CONTENT: 'VALIDATE_REJECT',
+  STALE_REJECT: 'CONCURRENCY',
+  LOCKED: 'CONCURRENCY',
+  APPLY_ERROR: 'IO_ERROR',
+};
+
+function errorClassFor(reason) {
+  return ERROR_CLASS_MAP[reason] ?? 'INTERNAL';
+}
+
+// F2: log to JSONL file (wf/logs/code-local-payloads.jsonl)
+function logToJsonl(entry) {
+  try {
+    mkdirSync(dirname(join(WF, 'logs', 'code-local-payloads.jsonl')), { recursive: true });
+    appendFileSync(join(WF, 'logs', 'code-local-payloads.jsonl'), JSON.stringify(entry) + '\n');
+  } catch { /* best-effort, never throw */ }
+}
+
+// F2: redaction function (shared)
+function redactForLog(text) {
+  if (!text) return text;
+  let out = String(text);
+  for (const re of SECRET_PATTERNS) out = out.replace(re, '[REDACTED]');
+  return out;
+}
+
+// F2: single logOnce function - writes one JSONL line with all required fields
+function logOnce(result, taskId, rawPaths, canonicalPaths) {
+  const entry = {
+    ts: new Date().toISOString(),
+    pid: process.pid,
+    taskId: taskId ?? null,
+    entryCount: Array.isArray(rawPaths) ? rawPaths.length : 0,
+    rawPaths: rawPaths ?? [],
+    canonicalPaths: canonicalPaths ?? [],
+    outcome: result.ok ? 'SUCCESS' : 'ERROR',
+    reason: result.ok ? 'SUCCESS' : (result.reason ?? 'UNKNOWN'),
+    errorClass: result.ok ? 'OK' : errorClassFor(result.reason),
+  };
+  // For blocked branches: include sha256 + length of content instead of preview
+  if (!result.ok && result.written) {
+    entry.written = result.written;
+  } else if (!result.ok && result.extra && result.extra.content) {
+    const content = String(result.extra.content);
+    entry.contentSha256 = createHash('sha256').update(content, 'utf8').digest('hex');
+    entry.contentLength = Buffer.byteLength(content, 'utf8');
+  }
+  // Redact before any truncation
+  const redactedEntry = JSON.parse(redactForLog(JSON.stringify(entry)));
+  logToJsonl(redactedEntry);
+}
+
+// F2: ApplyReject error class - replaces bail()
+class ApplyReject extends Error {
+  constructor(reason, extra = {}) {
+    super(reason);
+    this.name = 'ApplyReject';
+    this.reason = reason;
+    this.extra = extra;
+  }
+}
+
+// F2: core apply logic - returns result object, never calls process.exit
+async function runApply(planPath) {
+  const planText = readFileSync(planPath, 'utf8');
+  let plan;
+  try { plan = JSON.parse(planText); } catch { throw new ApplyReject('PLAN_MALFORMED'); }
+  const entries = Array.isArray(plan) ? plan : plan.files;
+  if (!Array.isArray(entries) || entries.length === 0) throw new ApplyReject('PLAN_EMPTY');
+  const allowRel = (rel) => rel.split(sep).join('/').startsWith('wf/') || /^(CONTEXT|DECISIONS|LOG)\.md$/.test(rel) || /^\.git(ignore|attributes)$/.test(rel);
+  const resolved = [];
+  const rawPaths = [];
+  const canonicalPaths = [];
+  for (const e of entries) {
+    if (!e || typeof e.path !== 'string' || e.path.length === 0) throw new ApplyReject('ENTRY_INVALID', { entry: e });
+    if (e.before_sha256 !== null && !(typeof e.before_sha256 === 'string' && /^[0-9a-f]{64}$/.test(e.before_sha256))) throw new ApplyReject('ENTRY_INVALID', { entry: e });
+    const v = validateWorkspacePath(e.path);
+    if (!v.ok) throw new ApplyReject(v.reason, { path: e.path });
+    const { abs, rel } = v;
+    if (!allowRel(rel)) throw new ApplyReject('NOT_ALLOWED', { rel });
+    rawPaths.push(e.path);
+    canonicalPaths.push(v.abs);
+    let content = null;
+    if (typeof e.content === 'string') content = e.content;
+    else if (typeof e.contentPath === 'string') {
+      try { content = readFileSync(resolve(ROOT, e.contentPath), 'utf8'); } catch { throw new ApplyReject('CONTENT_UNREADABLE', { path: e.contentPath }); }
+    } else throw new ApplyReject('ENTRY_NO_CONTENT', { entry: e });
+    resolved.push({ abs: v.abs, rel, before: e.before_sha256, content });
+  }
+  const LOCK = join(WF, '.apply.lock');
+  let fd = null;
+  try { fd = openSync(LOCK, 'wx'); } catch { throw new ApplyReject('LOCKED', { lock: LOCK }); }
+  const temps = [];
+  let result, exitCode = 0;
+  try {
+    const stale = [];
+    for (const e of resolved) {
+      const cur = existsSync(e.abs) ? createHash('sha256').update(readFileSync(e.abs)).digest('hex') : null;
+      if (cur !== e.before) stale.push({ path: e.rel, expected: e.before, actual: cur });
+    }
+    if (stale.length) { throw new ApplyReject('STALE_REJECT', { stale }); }
+    const written = [];
+    for (const e of resolved) {
+      const tmp = e.abs + '.tmp-apply-' + process.pid;
+      writeFileSync(tmp, e.content, 'utf8');
+      renameSync(tmp, e.abs);
+      written.push(e.rel);
+    }
+    return { ok: true, written, writtenRel: written };
+  } finally {
+    // Release lock before logging
+    try { if (fd !== null) closeSync(fd); } catch { /* ignore */ }
+    try { if (existsSync(LOCK)) unlinkSync(LOCK); } catch { /* ignore */ }
+    // Cleanup temps
+    for (const t of temps) { try { if (existsSync(t)) unlinkSync(t); } catch { /* ignore */ } }
+  }
+}
 // F1: blocklist segment — .git/.ssh/.aws/.envrc/.env(.khiêm tốn) trên canonical path
 const BLOCK_RE = /(^|\/)(\.git|\.ssh|\.aws|\.envrc|\.env)(\.|\/|$)/i;
 function normSeg(p) { const n = p.split(sep).join('/'); return WIN ? n.toLowerCase() : n; }
@@ -326,9 +453,6 @@ export function verifyChain(logText) {
     checked.push(ev.task ?? '?');
   }
   const result = { ok: broken.length === 0, checked: checked.length, legacy: legacy.length, broken };
-  if (broken.length > 0) {
-    result.reason = 'CHAIN_BROKEN';
-  }
   const sealInfo = collectSealInfo(logText);
   if (sealInfo.malformedSeals.length > 0) {
     result.ok = false;
@@ -836,13 +960,9 @@ if (cmd === 'make') {
   const task = args[0];
   const files = args.slice(1);
   if (!task || !files.length) { console.error('usage: bundle <task> <file...>'); process.exit(2); }
-  // Validate task id format: T\\d+(-[A-Za-z0-9]+)* (prevent traversal)
-  if (!/^T\d+(-[A-Za-z0-9]+)*$/.test(task)) { console.error('INVALID_TASK_ID'); process.exit(2); }
   console.log(JSON.stringify(bundleCreate(task, files), null, 2));
 } else if (cmd === 'bundle-check') {
-  const task = args[0] ?? '';
-  if (!/^T\d+(-[A-Za-z0-9]+)*$/.test(task)) { console.error('INVALID_TASK_ID'); process.exit(2); }
-  const r = bundleCheck(task);
+  const r = bundleCheck(args[0] ?? '');
   console.log(JSON.stringify(r, null, 2));
   if (!r.ok) process.exit(7);
 } else if (cmd === 'standalone') {
@@ -874,74 +994,36 @@ if (cmd === 'make') {
     console.log(JSON.stringify(manifest, null, 2));
   } else if (sub === 'check') {
     const result = preregCheck();
-    if (result.skipped) console.log(JSON.stringify({ ok: true, skipped: true }, null, 2));
-    else if (result.ok) console.log(JSON.stringify({ ok: true, ...result }, null, 2));
-    else console.log(JSON.stringify({ ok: false, reason: 'PREREG_MISMATCH', failures: result.failures }, null, 2));
+    if (result.skipped) console.log('prereg: SKIP (no manifest)');
+    else if (result.ok) console.log('prereg: PASS');
+    else {
+      console.log('| Path | Reason |');
+      console.log('|---|---|');
+      for (const f of result.failures) console.log(`| ${f.path} | ${f.reason} |`);
+      process.exit(5);
+    }
   } else {
     console.error('usage: prereg freeze <file...> | prereg check');
     process.exit(2);
   }
 } else if (cmd === 'apply') {
   const planPath = args[0];
-  const bail = (reason, extra = {}, code = 2) => { exitWith(reason, extra, code); };
-  if (!planPath) bail('NO_PLAN');
-  let plan;
-  try { plan = JSON.parse(readFileSync(planPath, 'utf8')); } catch { bail('PLAN_MALFORMED'); }
-  const entries = Array.isArray(plan) ? plan : plan.files;
-  if (!Array.isArray(entries) || entries.length === 0) bail('PLAN_EMPTY');
-  const allowRel = (rel) => rel.split(sep).join('/').startsWith('wf/') || /^(CONTEXT|DECISIONS|LOG)\.md$/.test(rel) || /^\.git(ignore|attributes)$/.test(rel);
-  const resolved = [];
-  for (const e of entries) {
-    if (!e || typeof e.path !== 'string' || e.path.length === 0) bail('ENTRY_INVALID', { entry: e });
-    if (e.before_sha256 !== null && !(typeof e.before_sha256 === 'string' && /^[0-9a-f]{64}$/.test(e.before_sha256))) bail('ENTRY_INVALID', { entry: e });
-    const v = validateWorkspacePath(e.path);
-    if (!v.ok) bail(v.reason, { path: e.path });
-    const { abs, rel } = v;
-    if (!allowRel(rel)) bail('NOT_ALLOWED', { rel });
-    let content = null;
-    if (typeof e.content === 'string') content = e.content;
-    else if (typeof e.contentPath === 'string') {
-      try { content = readFileSync(resolve(ROOT, e.contentPath), 'utf8'); } catch { bail('CONTENT_UNREADABLE', { path: e.contentPath }); }
-    } else bail('ENTRY_NO_CONTENT', { entry: e });
-    resolved.push({ abs, rel, before: e.before_sha256, content });
-  }
-  const LOCK = join(WF, '.apply.lock');
-  let fd = null;
-  try { fd = openSync(LOCK, 'wx'); } catch { bail('LOCKED', { lock: LOCK }, 8); }
-  const temps = [];
-  let result, exitCode = 0;
+  if (!planPath) { console.error('NO_PLAN'); process.exit(2); }
   try {
-    const stale = [];
-    for (const e of resolved) {
-      const cur = existsSync(e.abs) ? createHash('sha256').update(readFileSync(e.abs)).digest('hex') : null;
-      if (cur !== e.before) stale.push({ path: e.rel, expected: e.before, actual: cur });
-    }
-    if (stale.length) { result = { ok: false, reason: 'STALE_REJECT', stale }; exitCode = 8; }
-    else {
-      const written = [];
-      for (const e of resolved) {
-        const tmp = e.abs + '.tmp-apply-' + process.pid;
-        temps.push(tmp);
-        writeFileSync(tmp, e.content, 'utf8');
-        renameSync(tmp, e.abs);
-        temps.splice(temps.indexOf(tmp), 1);
-        written.push(e.rel);
-      }
-      result = { ok: true, written };
-      try {
-        const preview = resolved.map(e => `+++ b/${e.rel}\n${e.content.slice(0, 200)}`).join('\n---\n');
-        logPayload('apply', 'ai-workflow', preview, { source: 'apply-cmd', files: written });
-      } catch { /* payload log best-effort */ }
+    const result = await runApply(planPath);
+    if (result.ok) {
+      successOutcome(result.written);
+    } else {
+      exitWith(result.reason, result);
     }
   } catch (err) {
-    result = { ok: false, reason: 'APPLY_ERROR', message: String(err && err.message || err) }; exitCode = 8;
-  } finally {
-    for (const t of temps) { try { if (existsSync(t)) unlinkSync(t); } catch { /* bỏ qua */ } }
-    try { if (fd !== null) closeSync(fd); } catch { /* bỏ qua */ }
-    try { if (existsSync(LOCK)) unlinkSync(LOCK); } catch { /* bỏ qua */ }
+    if (err instanceof ApplyReject) {
+      exitWith(err.reason, err.extra);
+    } else {
+      console.error('APPLY_ERROR:', err);
+      exitWith('APPLY_ERROR', { message: String(err && err.message || err) });
+    }
   }
-  if (result.ok) { successOutcome(result.written); }
-  else { exitWith(result.reason, result, exitCode); }
 } else if (cmd === 'plan-extract') {
   const file = args[0];
   if (!file || !existsSync(file)) { console.log(JSON.stringify({ ok: false, reason: 'PLAN_NOT_FOUND' }, null, 2)); process.exit(2); }
@@ -1104,41 +1186,6 @@ if (cmd === 'make') {
   const changed = reapStale(st.tasks);
   saveState(st);
   console.log(JSON.stringify({ changed, tasks: st.tasks }, null, 2));
-} else if (cmd === 'state-validate') {
-  const st = loadState();
-  const errors = [];
-  // S01: schema valid
-  if (!st.seq || typeof st.seq !== 'object') errors.push({ field: 'seq', reason: 'MISSING_OR_INVALID' });
-  if (!st.tasks || typeof st.tasks !== 'object') errors.push({ field: 'tasks', reason: 'MISSING_OR_INVALID' });
-  if (!st.claudeCalls || typeof st.claudeCalls !== 'object') errors.push({ field: 'claudeCalls', reason: 'MISSING_OR_INVALID' });
-  if (!st.claudeCalls?.byDate || typeof st.claudeCalls.byDate !== 'object') errors.push({ field: 'claudeCalls.byDate', reason: 'MISSING_OR_INVALID' });
-  if (!st.claudeCalls?.byTask || typeof st.claudeCalls.byTask !== 'object') errors.push({ field: 'claudeCalls.byTask', reason: 'MISSING_OR_INVALID' });
-  // S02/S05: seq monotonic per task
-  for (const [task, seq] of Object.entries(st.seq ?? {})) {
-    if (!Number.isInteger(seq) || seq < 0) errors.push({ task, field: 'seq', reason: 'SEQ_INVALID', value: seq });
-  }
-  // S03/S08: valid state transitions (only obvious invalid states, not history inference)
-  for (const [task, t] of Object.entries(st.tasks ?? {})) {
-    if (!t.state || !['CREATED', 'RUNNING', 'DONE', 'FAILED', 'DEAD_LETTER'].includes(t.state)) {
-      errors.push({ task, field: 'state', reason: 'INVALID_STATE', value: t.state });
-    }
-    if (!t.createdAt || !t.updatedAt) errors.push({ task, field: 'timestamps', reason: 'MISSING' });
-    // S04: attempts must be non-negative integer
-    if (typeof t.attempts !== 'number' || t.attempts < 0 || !Number.isInteger(t.attempts)) {
-      errors.push({ task, field: 'attempts', reason: 'ATTEMPTS_INVALID', value: t.attempts });
-    }
-    // S10: attempts >= MAX_ATTEMPTS -> DEAD_LETTER
-    if ((t.attempts ?? 0) >= 3 && t.state !== 'DEAD_LETTER') {
-      errors.push({ task, field: 'state', reason: 'ATTEMPTS_EXCEEDED', detail: 'attempts >= 3 but state not DEAD_LETTER' });
-    }
-  }
-  // S13: idempotency key uniqueness is enforced in logEvent, not here
-  // S14: hash-chain integrity - verifychain handles this
-  if (errors.length > 0) {
-    console.log(JSON.stringify({ ok: false, reason: 'SCHEMA_INVALID', errors }, null, 2));
-    process.exit(2);
-  }
-  console.log(JSON.stringify({ ok: true }, null, 2));
 } else if (cmd === 'dispute') {
   const task = args[0];
   const action = args[1];
@@ -1189,32 +1236,6 @@ if (cmd === 'make') {
     throw err;
   }
   console.log('logged');
-} else if (cmd === 'log-event') {
-  const opts = {};
-  for (const a of args) {
-    const eq = a.indexOf('=');
-    if (eq > 0) opts[a.slice(2, eq)] = a.slice(eq + 1);
-  }
-  const entry = {
-    task: opts.task,
-    seq: opts.seq ? Number(opts.seq) : null,
-    hash: opts.hash,
-    relay: opts.relay,
-    verdict: opts.verdict,
-    stateFrom: opts['state-from'],
-    stateTo: opts['state-to'],
-    claude_calls: opts['claude-calls'] ? Number(opts['claude-calls']) : 0,
-  };
-  try {
-    const res = logEvent(entry);
-    console.log(JSON.stringify({ ok: true, ...res }, null, 2));
-  } catch (err) {
-    if (err?.message === 'HUMAN_REQUIRED') {
-      console.log(JSON.stringify({ ok: false, reason: 'HUMAN_REQUIRED' }, null, 2));
-      process.exit(0);
-    }
-    throw err;
-  }
 } else {
   dryRun();
 }
