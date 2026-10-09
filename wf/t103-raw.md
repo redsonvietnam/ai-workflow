@@ -1,6 +1,6 @@
 ﻿# T103 — V2-TC1: Escalation Claude (raw)
 
-Thread: https://claude.ai/chat/543d7115-27b3-48ce-a190-f42bb4d66e0d
+Thread: <chat-url>
 RELAY: opencode -> Claude (truc tiep, khong qua ChatGPT)
 claude_calls: 1 (<= 1 theo V1.5)
 

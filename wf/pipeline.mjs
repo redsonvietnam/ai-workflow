@@ -2,11 +2,14 @@
 // WF:v1 pipeline — HASH/SEQ do script tính, KHÔNG nhờ model.
 import { createHash } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
-import { readFileSync, writeFileSync, mkdirSync, existsSync, openSync, closeSync, unlinkSync, renameSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdirSync, existsSync, openSync, closeSync, unlinkSync, renameSync, realpathSync } from 'node:fs';
 import { dirname, join, resolve, sep, isAbsolute, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
+const SCRIPT_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
+const ROOT = process.env.WF_ROOT ? resolve(process.env.WF_ROOT) : SCRIPT_ROOT;
+let ROOT_REAL;
+try { ROOT_REAL = realpathSync(ROOT); } catch { console.error('ROOT_REAL_FAILED'); process.exit(2); }
 const WF = join(ROOT, 'wf');
 const STATE = join(WF, 'state.json');
 const LOG = join(ROOT, 'LOG.md');
@@ -21,6 +24,23 @@ function saveState(s) {
   renameSync(tmp, STATE);
 }
 export function sha256(s) { return createHash('sha256').update(s, 'utf8').digest('hex'); }
+const WIN = process.platform === 'win32';
+const norm = (p) => WIN ? p.replace(/\\/g, '/').toLowerCase() : p.replace(/\\/g, '/');
+function inRoot(candidate) {
+  const rel = relative(ROOT_REAL, candidate);
+  if (rel === '' || rel.startsWith('..')) return false;
+  return !isAbsolute(rel);
+}
+function safeContain(abs) {
+  let real;
+  try { real = realpathSync(abs); } catch { real = null; }
+  if (real) return inRoot(real);
+  let dir = dirname(abs);
+  while (true) {
+    try { const rd = realpathSync(dir); return inRoot(rd); }
+    catch { const parent = dirname(dir); if (parent === dir) return false; dir = parent; }
+  }
+}
 
 export function canonical(v) {
   if (Array.isArray(v)) return '[' + v.map(canonical).join(',') + ']';
@@ -84,6 +104,26 @@ export function bundleCheck(task) {
   }
   return { ok: errors.length === 0, errors };
 }
+export function collectSealInfo(logText) {
+  const legacyLines = [];
+  const seals = [];
+  const malformedSeals = [];
+  for (const line of String(logText ?? '').split(/\r?\n/)) {
+    const j = line.indexOf('|');
+    if (j < 0) continue;
+    let ev;
+    try { ev = JSON.parse(line.slice(j + 1).trim()); } catch { continue; }
+    if (!ev) continue;
+    if (ev.type === 'SEAL') {
+      if (ev.eventHash) seals.push(ev);
+      else malformedSeals.push(ev);
+      continue;
+    }
+    if (!ev.eventHash) legacyLines.push(line);
+  }
+  const legacyDigest = sha256(legacyLines.join('\n'));
+  return { legacyLines, legacyCount: legacyLines.length, legacyDigest, seals, malformedSeals };
+}
 export function verifyChain(logText) {
   const checked = [];
   const legacy = [];
@@ -103,27 +143,52 @@ export function verifyChain(logText) {
     prev = ev.eventHash;
     checked.push(ev.task ?? '?');
   }
-  return { ok: broken.length === 0, checked: checked.length, legacy: legacy.length, broken };
+  const result = { ok: broken.length === 0, checked: checked.length, legacy: legacy.length, broken };
+  const sealInfo = collectSealInfo(logText);
+  if (sealInfo.malformedSeals.length > 0) {
+    result.ok = false;
+    result.reason = 'SEAL_MALFORMED';
+    result.sealed = false;
+  } else if (sealInfo.seals.length > 1) {
+    result.ok = false;
+    result.reason = 'MULTIPLE_SEALS';
+    result.sealed = false;
+  } else if (sealInfo.seals.length === 1) {
+    const seal = sealInfo.seals[0];
+    const digestOk = seal.legacyDigest === sealInfo.legacyDigest && seal.legacyCount === sealInfo.legacyCount;
+    if (digestOk && broken.length === 0) {
+      result.sealed = true;
+    } else {
+      if (!digestOk) {
+        result.ok = false;
+        result.reason = 'LEGACY_TAMPER';
+      }
+      result.sealed = false;
+    }
+  }
+  return result;
 }
 
-export function checkEscalation(task, today = new Date().toISOString().slice(0, 10)) {
+export function checkEscalation(task, today = new Date().toISOString().slice(0, 10), additionalCalls = 1) {
   const st = loadState();
   const calls = st.claudeCalls ?? { byDate: {}, byTask: {} };
   const byDate = calls.byDate ?? {};
   const byTask = calls.byTask ?? {};
-  if (Number(byTask[task] ?? 0) >= 1 || Number(byDate[today] ?? 0) >= 2) {
+  const n = Math.max(0, Number(additionalCalls) || 0);
+  if (Number(byTask[task] ?? 0) + n > 1 || Number(byDate[today] ?? 0) + n > 2) {
     return { ok: false, reason: 'HUMAN_REQUIRED' };
   }
   return { ok: true };
 }
 
-function consumeEscalation(task, today = new Date().toISOString().slice(0, 10)) {
+function consumeEscalation(task, additionalCalls, today = new Date().toISOString().slice(0, 10)) {
   const st = loadState();
   const calls = st.claudeCalls ?? { byDate: {}, byTask: {} };
   calls.byDate = calls.byDate ?? {};
   calls.byTask = calls.byTask ?? {};
-  calls.byTask[task] = Number(calls.byTask[task] ?? 0) + 1;
-  calls.byDate[today] = Number(calls.byDate[today] ?? 0) + 1;
+  const n = Math.max(0, Number(additionalCalls) || 0);
+  calls.byTask[task] = Number(calls.byTask[task] ?? 0) + n;
+  calls.byDate[today] = Number(calls.byDate[today] ?? 0) + n;
   st.claudeCalls = calls;
   saveState(st);
 }
@@ -198,19 +263,105 @@ export function decideVerdict(parsed, conditions = {}) {
   };
 }
 
-export function logEvent(entry) {
-  if (Number(entry.claude_calls ?? 0) > 0) {
-    const today = new Date().toISOString().slice(0, 10);
-    const budget = checkEscalation(entry.task, today);
-    if (!budget.ok) throw new Error('HUMAN_REQUIRED');
-    consumeEscalation(entry.task, today);
+const LOG_LOCK = join(WF, '.log.lock');
+const LOG_LOCK_TIMEOUT_MS = 15000;
+const LOG_LOCK_STALE_MS = 30000;
+
+function sleepMs(ms) { Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms); }
+function pidAlive(pid) {
+  if (!Number.isInteger(pid) || pid <= 0) return false;
+  try { process.kill(pid, 0); return true; } catch (err) { return err?.code === 'EPERM'; }
+}
+function lockStaleness(raw) {
+  let info = null;
+  try { info = JSON.parse(raw); } catch { info = null; }
+  if (!info) return null;
+  return !pidAlive(info.pid) || Date.now() - Number(info.ts) > LOG_LOCK_STALE_MS;
+}
+function acquireLogLock() {
+  mkdirSync(WF, { recursive: true });
+  const deadline = Date.now() + LOG_LOCK_TIMEOUT_MS;
+  let unknownSince = null;
+  for (;;) {
+    try {
+      const fd = openSync(LOG_LOCK, 'wx');
+      try { writeFileSync(fd, JSON.stringify({ pid: process.pid, ts: Date.now() })); } catch { /* lock van duoc giu */ }
+      return fd;
+    } catch (err) {
+      if (err?.code !== 'EEXIST') throw err;
+    }
+    if (Date.now() > deadline) throw new Error('LOG_LOCK_TIMEOUT');
+    let raw;
+    try { raw = readFileSync(LOG_LOCK, 'utf8'); } catch { continue; }
+    let stale = lockStaleness(raw);
+    if (stale === null) {
+      unknownSince = unknownSince ?? Date.now();
+      stale = Date.now() - unknownSince > 2000;
+    } else unknownSince = null;
+    if (stale) {
+      try { if (readFileSync(LOG_LOCK, 'utf8') === raw) unlinkSync(LOG_LOCK); } catch { /* da bi nha/pha */ }
+      continue;
+    }
+    sleepMs(5 + Math.floor(Math.random() * 15));
   }
+}
+function releaseLogLock(fd) {
+  try { closeSync(fd); } catch { /* bo qua */ }
+  try {
+    const owner = JSON.parse(readFileSync(LOG_LOCK, 'utf8'));
+    if (owner?.pid === process.pid) unlinkSync(LOG_LOCK);
+  } catch { /* bo qua */ }
+}
+function withLogLock(fn) {
+  const fd = acquireLogLock();
+  try { return fn(); } finally { releaseLogLock(fd); }
+}
+function restoreState(snapshot) {
+  try {
+    if (snapshot === null) { if (existsSync(STATE)) unlinkSync(STATE); }
+    else { const tmp = STATE + '.tmp'; writeFileSync(tmp, snapshot); renameSync(tmp, STATE); }
+  } catch { /* best-effort */ }
+}
+function appendLogLine(line) {
+  if (!existsSync(LOG)) writeFileSync(LOG, '# LOG\n');
+  const fd = openSync(LOG, 'a');
+  try { writeFileSync(fd, line); } finally { closeSync(fd); }
+}
+
+export function logEvent(entry) {
+  return withLogLock(() => logEventLocked(entry));
+}
+
+// Critical section (giu .log.lock): dedupe -> validate -> budget -> state -> append LOG.
+function logEventLocked(entry) {
+  const relayParts = String(entry.relay ?? '').split('->');
+  const inferredClaudeCalls = relayParts.reduce((n, part) => n + (/\bclaude\b/i.test(part) ? 1 : 0), 0);
+  const declaredClaudeCalls = Math.max(0, Number(entry.claude_calls ?? 0) || 0);
+  const normalizedClaudeCalls = Math.max(declaredClaudeCalls, inferredClaudeCalls);
+  const idempotencyKey = sha256(JSON.stringify([
+    entry.task ?? null,
+    entry.seq ?? null,
+    entry.hash ?? null,
+    entry.relay ?? null,
+  ]));
+  const prev = existsSync(LOG) ? readFileSync(LOG, 'utf8') : '# LOG\n';
+  const duplicate = prev.split(/\r?\n/).some((line) => {
+    const i = line.indexOf('|');
+    if (i < 0) return false;
+    try { return JSON.parse(line.slice(i + 1).trim()).idempotencyKey === idempotencyKey; } catch { return false; }
+  });
+  if (duplicate) return { logged: false, idempotencyKey };
   const request = entry.request ?? entry.input ?? '';
   const reply = entry.reply ?? entry.output ?? '';
-  const transition = entry.stateTransition ?? {
+  const transition = { ...(entry.stateTransition ?? {
     from: entry.stateFrom ?? null,
     to: entry.stateTo ?? entry.state ?? null,
-  };
+  }) };
+  const task = transition.to != null ? loadState().tasks?.[entry.task] : null;
+  if (transition.to != null) {
+    if (!task) throw new Error('TASK_NOT_FOUND');
+    if (transition.from == null) transition.from = task.state;
+  }
   if (transition.from != null && transition.to != null) {
     assertTransition(transition.from, transition.to);
   }
@@ -219,6 +370,11 @@ export function logEvent(entry) {
   const finalHash = entry.finalHash ?? entry.replyHash ?? null;
   if (isTerminal && (!transition.from || !transition.to || !finalHash)) {
     throw new Error('TERMINAL_EVIDENCE_REQUIRED');
+  }
+  if (task && task.state !== transition.from) throw new Error('INVALID_STATE_TRANSITION');
+  const today = new Date().toISOString().slice(0, 10);
+  if (normalizedClaudeCalls > 0 && !checkEscalation(entry.task, today, normalizedClaudeCalls).ok) {
+    throw new Error('HUMAN_REQUIRED');
   }
   const enriched = {
     task: entry.task ?? null,
@@ -230,31 +386,39 @@ export function logEvent(entry) {
     terminal: isTerminal,
     finalHash,
     evidence: entry.evidence ?? null,
-    claude_calls: entry.claude_calls ?? 0,
+    claude_calls: normalizedClaudeCalls,
     requestChars: entry.requestChars ?? [...request].length,
     replyChars: entry.replyChars ?? [...reply].length,
     requestBytes: entry.requestBytes ?? Buffer.byteLength(request, 'utf8'),
     replyBytes: entry.replyBytes ?? Buffer.byteLength(reply, 'utf8'),
   };
-  const idempotencyKey = sha256(JSON.stringify([
-    enriched.task ?? null,
-    enriched.seq ?? null,
-    enriched.hash ?? null,
-    enriched.relay ?? null,
-  ]));
   enriched.idempotencyKey = idempotencyKey;
+  if (entry.type != null) enriched.type = entry.type;
+  if (entry.legacyCount != null) enriched.legacyCount = entry.legacyCount;
+  if (entry.legacyDigest != null) enriched.legacyDigest = entry.legacyDigest;
   const prevEventHash = lastEventHash();
   enriched.prevHash = prevEventHash ?? 'GENESIS';
   enriched.eventHash = computeEventHash(enriched.prevHash, enriched);
   const line = `- ${new Date().toISOString()} | ${JSON.stringify(enriched)}\n`;
-  const prev = existsSync(LOG) ? readFileSync(LOG, 'utf8') : '# LOG\n';
-  const duplicate = prev.split(/\r?\n/).some((line) => {
-    const i = line.indexOf('|');
-    if (i < 0) return false;
-    try { return JSON.parse(line.slice(i + 1).trim()).idempotencyKey === idempotencyKey; } catch { return false; }
-  });
-  if (duplicate) return { logged: false, idempotencyKey };
-  writeFileSync(LOG, prev + line);
+  const snapshot = existsSync(STATE) ? readFileSync(STATE, 'utf8') : null;
+  try {
+    if (normalizedClaudeCalls > 0) consumeEscalation(entry.task, normalizedClaudeCalls, today);
+    if (transition.to != null) {
+      const st = loadState();
+      const t = st.tasks[entry.task];
+      t.state = transition.to;
+      t.updatedAt = new Date().toISOString();
+      if (transition.to === 'FAILED') {
+        t.attempts = Number(t.attempts ?? 0) + 1;
+        if (t.attempts >= MAX_ATTEMPTS) t.state = 'DEAD_LETTER';
+      }
+      saveState(st);
+    }
+    appendLogLine(line);
+  } catch (err) {
+    restoreState(snapshot);
+    throw err;
+  }
   return { logged: true, idempotencyKey };
 }
 
@@ -323,6 +487,29 @@ export function assertTransition(from, to) {
   if (!TRANSITIONS[from].includes(to)) throw new Error('INVALID_STATE_TRANSITION');
   return to;
 }
+
+export function transitionTask(task, action, now = new Date().toISOString()) {
+  const st = loadState();
+  const t = st.tasks?.[task];
+  if (!t) throw new Error('TASK_NOT_FOUND');
+  const targets = { start: 'RUNNING', done: 'DONE', fail: 'FAILED', dead: 'DEAD_LETTER' };
+  const to = targets[action];
+  if (!to) throw new Error('INVALID_ACTION');
+  const from = t.state;
+  let next = assertTransition(from, to);
+  let attempts = Number(t.attempts ?? 0);
+  if (action === 'fail') {
+    attempts += 1;
+    if (attempts >= MAX_ATTEMPTS) next = 'DEAD_LETTER';
+  }
+  if (next !== to) assertTransition(from, next);
+  t.state = next;
+  t.attempts = attempts;
+  t.updatedAt = now;
+  saveState(st);
+  return { task, from, to: next, attempts, updatedAt: now };
+}
+
 export function reapStale(tasks, now = Date.now()) {
   const changed = {};
   for (const [k, t] of Object.entries(tasks)) {
@@ -401,7 +588,7 @@ function dryRun() {
   const ok = baseResults.every(x => x.ok) && baseDeterministic && newFixtures.every(x => x.ok);
   console.log(JSON.stringify({
     dryrun: ok ? 'PASS' : 'FAIL',
-    passed: `6/6`,
+    passed: `${all.filter(x => x.ok).length}/${all.length}`,
     deterministic: baseDeterministic,
     fixtures: all,
     retry: { success: Boolean(retrySuccess), fail: retryFail },
@@ -413,7 +600,18 @@ const [cmd, ...args] = process.argv.slice(2);
 if (cmd === 'make') {
   const o = {};
   for (const a of args) { const i = a.indexOf('='); o[a.slice(0, i)] = a.slice(i + 1); }
-  const { envelope, hash, seq } = makeEnvelope({ task: o.task, role: o.role || 'CHATGPT', objective: o.objective, ask: o.ask, input: o.input || '', contextRef: o.contextRef || '', constraints: o.constraints ? o.constraints.split('|') : [] });
+  let input = o.input || '';
+  if (o.files) {
+    const fileLines = [];
+    for (const fp of o.files.split(',')) {
+      const abs = resolve(ROOT, fp);
+      if (!norm(abs).startsWith(norm(ROOT) + '/')) { console.error(`TRAVERSAL: ${fp}`); process.exit(2); }
+      if (!existsSync(abs)) { console.error(`FILE_MISSING: ${fp}`); process.exit(2); }
+      fileLines.push(`FILE_SHA256: ${fp}=${sha256(readFileSync(abs))}`);
+    }
+    input = fileLines.join('\n') + '\n' + input;
+  }
+  const { envelope, hash, seq } = makeEnvelope({ task: o.task, role: o.role || 'CHATGPT', objective: o.objective, ask: o.ask, input, contextRef: o.contextRef || '', constraints: o.constraints ? o.constraints.split('|') : [] });
   console.log(envelope);
   console.error(`HASH=${hash} SEQ=${seq}`);
 } else if (cmd === 'parse') {
@@ -556,6 +754,96 @@ if (cmd === 'make') {
   }
   console.log(JSON.stringify(result, null, 2));
   process.exit(exitCode);
+} else if (cmd === 'plan-extract') {
+  const file = args[0];
+  if (!file || !existsSync(file)) { console.log(JSON.stringify({ ok: false, reason: 'PLAN_NOT_FOUND' }, null, 2)); process.exit(2); }
+  const raw = readFileSync(file, 'utf8');
+  const blocks = [...raw.matchAll(/```json\s*\n([\s\S]*?)```/g)];
+  let plan = null;
+  for (let i = blocks.length - 1; i >= 0; i--) {
+    try { const p = JSON.parse(blocks[i][1]); if (p && Array.isArray(p.files)) { plan = p; break; } } catch { /* continue */ }
+  }
+  if (!plan) { console.log(JSON.stringify({ ok: false, reason: 'PLAN_NOT_FOUND' }, null, 2)); process.exit(2); }
+  for (const f of plan.files) {
+    if (!f || typeof f.path !== 'string' || f.path.length === 0 || typeof f.content !== 'string') {
+      console.log(JSON.stringify({ ok: false, reason: 'PLAN_MALFORMED', entry: f }, null, 2));
+      process.exit(2);
+    }
+  }
+  plan.files = plan.files.map((f) => { const { before_sha256, ...rest } = f; return rest; });
+  const extractPath = join(WF, 'plan.extracted.json');
+  writeFileSync(extractPath, JSON.stringify(plan, null, 2) + '\n');
+  console.log(JSON.stringify({ ok: true, files: plan.files.map((f) => f.path) }, null, 2));
+} else if (cmd === 'plan-prepare') {
+  const planPath = args[0];
+  if (!planPath || !existsSync(planPath)) { console.log(JSON.stringify({ ok: false, reason: 'PLAN_NOT_FOUND' }, null, 2)); process.exit(2); }
+  let envPath = null;
+  for (let i = 1; i < args.length; i++) if (args[i] === '--envelope') envPath = args[i + 1];
+  if (!envPath || !existsSync(envPath)) { console.log(JSON.stringify({ ok: false, reason: 'ENVELOPE_MISSING' }, null, 2)); process.exit(2); }
+  let plan;
+  try { plan = JSON.parse(readFileSync(planPath, 'utf8')); } catch { console.log(JSON.stringify({ ok: false, reason: 'PLAN_MALFORMED' }, null, 2)); process.exit(2); }
+  if (!Array.isArray(plan.files)) { console.log(JSON.stringify({ ok: false, reason: 'PLAN_MALFORMED' }, null, 2)); process.exit(2); }
+  const envText = readFileSync(envPath, 'utf8');
+  const envHashes = new Map();
+  for (const m of envText.matchAll(/FILE_SHA256:\s*(\S+?)=([0-9a-f]{64})/g)) envHashes.set(m[1], m[2]);
+  const prepared = [];
+  for (const f of plan.files) {
+    if (!f || typeof f.path !== 'string' || f.path.length === 0 || typeof f.content !== 'string') {
+      console.log(JSON.stringify({ ok: false, reason: 'PLAN_MALFORMED', entry: f }, null, 2));
+      process.exit(2);
+    }
+    const abs = resolve(ROOT, f.path);
+    if (!norm(abs).startsWith(norm(ROOT) + '/') || !safeContain(abs)) {
+      console.log(JSON.stringify({ ok: false, reason: 'TRAVERSAL', path: f.path }, null, 2));
+      process.exit(2);
+    }
+    const rel = relative(ROOT, abs);
+    const envHash = envHashes.get(rel) ?? envHashes.get(f.path) ?? null;
+    if (envHash) {
+      prepared.push({ ...f, before_sha256: envHash });
+    } else if (!existsSync(abs)) {
+      prepared.push({ ...f, before_sha256: null });
+    } else {
+      console.log(JSON.stringify({ ok: false, reason: 'NOT_IN_ENVELOPE', path: f.path }, null, 2));
+      process.exit(2);
+    }
+  }
+  const outPath = join(WF, 'plan.prepared.json');
+  writeFileSync(outPath, JSON.stringify({ files: prepared }, null, 2) + '\n');
+  console.log(JSON.stringify({ ok: true, prepared: outPath, files: prepared.map((f) => ({ path: f.path, before: f.before_sha256 })) }, null, 2));
+} else if (cmd === 'task') {
+  const task = args[0];
+  const action = args[1];
+  if (!task || !action) { console.log(JSON.stringify({ ok: false, reason: 'USAGE' })); process.exit(2); }
+  try {
+    const result = transitionTask(task, action);
+    console.log(JSON.stringify({ ok: true, ...result }, null, 2));
+  } catch (err) {
+    const reason = err?.message || 'INVALID_STATE_TRANSITION';
+    console.log(JSON.stringify({ ok: false, reason }, null, 2));
+    process.exit(2);
+  }
+} else if (cmd === 'status') {
+  const st = loadState();
+  const tasks = Object.entries(st.tasks ?? {}).sort((a, b) => String(b[1].updatedAt ?? '').localeCompare(String(a[1].updatedAt ?? '')));
+  const now = Date.now();
+  const age = (value) => {
+    const parsed = Date.parse(value);
+    const ms = Math.max(0, now - (Number.isFinite(parsed) ? parsed : Number(value) || now));
+    const sec = Math.floor(ms / 1000);
+    if (sec < 60) return sec + 's';
+    const min = Math.floor(sec / 60);
+    if (min < 60) return min + 'm';
+    const hour = Math.floor(min / 60);
+    if (hour < 24) return hour + 'h';
+    return Math.floor(hour / 24) + 'd';
+  };
+  console.log('| id | state | attempts | tuổi | seq | claudeCalls |');
+  console.log('|---|---|---:|---:|---:|---:|');
+  for (const [id, t] of tasks) {
+    const calls = st.claudeCalls?.byTask?.[id] ?? 0;
+    console.log('| ' + id + ' | ' + t.state + ' | ' + (t.attempts ?? 0) + ' | ' + age(t.updatedAt) + ' | ' + (st.seq?.[id] ?? 0) + ' | ' + calls + ' |');
+  }
 } else if (cmd === 'validate') {
   const file = args[0];
   const raw = file === '-' ? readFileSync(0, 'utf8') : readFileSync(file, 'utf8');
@@ -573,6 +861,55 @@ if (cmd === 'make') {
   const r = verifyChain(existsSync(LOG) ? readFileSync(LOG, 'utf8') : '');
   console.log(JSON.stringify(r, null, 2));
   if (!r.ok) process.exit(4);
+} else if (cmd === 'seal') {
+  const logText = existsSync(LOG) ? readFileSync(LOG, 'utf8') : '';
+  const sealInfo = collectSealInfo(logText);
+  if (sealInfo.malformedSeals.length > 0) {
+    console.log(JSON.stringify({ ok: false, reason: 'SEAL_MALFORMED', malformedFound: sealInfo.malformedSeals.length }, null, 2));
+    process.exit(4);
+  }
+  if (sealInfo.seals.length > 1) {
+    console.log(JSON.stringify({ ok: false, reason: 'MULTIPLE_SEALS', sealsFound: sealInfo.seals.length }, null, 2));
+    process.exit(4);
+  }
+  if (sealInfo.seals.length === 1) {
+    const seal = sealInfo.seals[0];
+    const sealHashOk = seal.eventHash === computeEventHash(seal.prevHash, seal);
+    if (!sealHashOk) {
+      console.log(JSON.stringify({ ok: false, reason: 'SEAL_INVALID', detail: 'SEAL eventHash mismatch' }, null, 2));
+      process.exit(4);
+    }
+    if (seal.legacyDigest === sealInfo.legacyDigest && seal.legacyCount === sealInfo.legacyCount) {
+      console.log(JSON.stringify({ ok: true, status: 'SEAL_EXISTS', legacyCount: sealInfo.legacyCount, legacyDigest: sealInfo.legacyDigest }, null, 2));
+      process.exit(0);
+    }
+    console.log(JSON.stringify({ ok: false, reason: 'LEGACY_TAMPER', expected: seal.legacyDigest, actual: sealInfo.legacyDigest }, null, 2));
+    process.exit(4);
+  }
+  try {
+    const res = logEvent({
+      task: 'T145',
+      hash: null,
+      relay: null,
+      verdict: 'PASS',
+      type: 'SEAL',
+      legacyCount: sealInfo.legacyCount,
+      legacyDigest: sealInfo.legacyDigest,
+      claude_calls: 0,
+    });
+    if (!res.logged) {
+      console.log(JSON.stringify({ ok: true, status: 'SEAL_EXISTS', legacyCount: sealInfo.legacyCount, legacyDigest: sealInfo.legacyDigest }, null, 2));
+      process.exit(0);
+    }
+    console.log(JSON.stringify({ ok: true, status: 'SEALED', legacyCount: sealInfo.legacyCount, legacyDigest: sealInfo.legacyDigest }, null, 2));
+    process.exit(0);
+  } catch (err) {
+    if (err?.message === 'HUMAN_REQUIRED') {
+      console.log(JSON.stringify({ ok: false, reason: 'HUMAN_REQUIRED' }, null, 2));
+      process.exit(3);
+    }
+    throw err;
+  }
 } else if (cmd === 'reap') {
   const st = loadState();
   st.tasks = st.tasks ?? {};

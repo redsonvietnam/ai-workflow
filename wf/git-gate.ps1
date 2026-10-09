@@ -26,8 +26,14 @@ git diff --cached --numstat | ForEach-Object {
 }
 if ($lines -gt $MaxLines) { throw "GATE FAIL: diff $lines dòng > limit $MaxLines" }
 
-$secrets = git diff --cached | Select-String -Pattern '(?i)(api[_-]?key|secret|passwd|password|token|cookie)\s*[:=]\s*["''][^"'']{8,}'
-if ($secrets) { throw "GATE FAIL: phát hiện secret khả nghi:`n$($secrets | Select-Object -First 3)" }
+$patternFile = Join-Path $PSScriptRoot 'secret-patterns.json'
+$secretPatterns = Get-Content -Raw -LiteralPath $patternFile | ConvertFrom-Json
+$addedLines = @(git diff --cached --unified=0 | Where-Object { $_ -match '^\+(?!\+\+\+)' })
+foreach ($line in $addedLines) {
+  foreach ($rule in $secretPatterns) {
+    if ($line -match $rule.pattern) { throw "GATE FAIL: secret pattern '$($rule.name)'" }
+  }
+}
 
 # T131: revalidate NGAY TRƯỚC commit — HEAD/index lệch ⇒ stale, không commit.
 $head1 = (git rev-parse HEAD)

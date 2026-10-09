@@ -1,7 +1,7 @@
 # T102 — V2-TC3: Write thật qua CodeLocal (raw evidence)
 
-Thread: https://chatgpt.com/c/6ac5cc72-166c-83ec-adba-0c647ab76511
-Workspace: ai-workflow-ac2fe45f3e (D:\ai-workflow)
+Thread: <chat-url>
+Workspace: <workspace-name> (<workspace-path>)
 Mode đã chọn (user): Live Project (executionMode=live)
 
 ## SEQ=1 (attempt 1)

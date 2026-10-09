@@ -1,0 +1,50 @@
+name: CI
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  test:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      # T147: autocrlf=false TRƯỚC checkout — tránh lệch hash do CRLF trên Windows
+      - run: git config --global core.autocrlf false
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: node wf/pipeline.mjs
+      - run: node wf/pipeline.mjs prereg check
+      - run: node wf/pipeline.mjs verifychain
+      # T147: bundle-check cho mọi bundle
+      - name: Bundle check
+        shell: bash
+        run: |
+          set -e
+          for d in wf/bundles/*/; do
+            name=$(basename "$d")
+            node wf/pipeline.mjs bundle-check "$name"
+          done
+      # T147→T148: mọi test — test-t134 đã có SKIP logic (external-source-missing → exit 0)
+      - name: Tests
+        shell: bash
+        run: |
+          set -e
+          for t in wf/test-*.mjs; do
+            node "$t"
+          done
+  secrets:
+    runs-on: ubuntu-latest
+    steps:
+      - run: git config --global core.autocrlf false
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      # Miễn phí cho repo tài khoản cá nhân
+      - uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

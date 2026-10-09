@@ -1,0 +1,2 @@
+{"ts":"2026-10-09T05:08:40.880Z","taskId":"T151-B-TEST","workspaceId":"ai-workflow-ac2fe45f3e","patchBytes":67,"patchPreview":"--- /dev/null\n+++ b/wf/test-payload.md\n@@ -0,0 +1 @@\n+Test payload\n","patchHeaders":["--- /dev/null","+++ b/wf/test-payload.md"],"metadata":{"test":true,"source":"payload-log-test"}}
+{"ts":"2026-10-09T05:11:30.925Z","taskId":"T152","workspaceId":"ai-workflow-ac2fe45f3e","patchBytes":0,"patchPreview":null,"patchHeaders":null,"metadata":{"source":"cli","patchFile":null}}

@@ -1,9 +1,9 @@
 {
-  "frozenAt": "2026-10-07T22:00:28.635Z",
+  "frozenAt": "2026-10-09T02:08:45.566Z",
   "files": [
     {
       "path": "wf/t134-spec.md",
-      "sha256": "f739504d7117377fe0b647ceec8c6995e1b7fa056683a98fdb3f8f8ddd98ca37"
+      "sha256": "f15f42fc4b14d15b58f70375fde9781882551d991fc32db2a81b036bafad2b3e"
     }
   ],
   "note": "Frozen by prereg freeze; changes require re-freeze."

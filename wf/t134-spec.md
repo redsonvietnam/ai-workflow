@@ -8,7 +8,7 @@ Nguồn: architect SEQ1 (`wf/t134-raw.md`, HASH 5ea366acf45d174b). FROZEN qua `p
   - `docs/PCM.md`
   - `docs/PWF.md`
   - `docs/CONFORMANCE.md`
-- Skill local: `C:\Users\Fesdinang\.config\opencode\skills\pcm-pwf\SKILL.md`
+- Skill local: `<user-home>\.config\opencode\skills\pcm-pwf\SKILL.md`
 - Cả 4 nguồn ghi SHA-256 **tính lại** vào doc.
 
 ## 2) Format `wf/t134-pcm-constraints.md`
