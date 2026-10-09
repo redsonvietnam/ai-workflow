@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // T151-B: Payload logging cho CodeLocal apply_patch
 // Ghi nguyên văn patch/envelope gửi vào CodeLocal cho mọi lần gọi
-import { appendFileSync, mkdirSync } from 'node:fs';
+import { appendFileSync, mkdirSync, readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -11,6 +11,37 @@ const PAYLOAD_LOG = join(LOG_DIR, 'code-local-payloads.jsonl');
 
 // Đảm bảo log dir tồn tại
 try { mkdirSync(LOG_DIR, { recursive: true }); } catch {}
+
+// CLI mode: node wf/payload-log.mjs <taskId> <workspaceId> <patchFile>
+if (process.argv[1] && process.argv[1].endsWith('payload-log.mjs')) {
+  const [taskId, workspaceId, patchFile] = process.argv.slice(2);
+  if (!taskId || !workspaceId) {
+    console.error('Usage: node wf/payload-log.mjs <taskId> <workspaceId> [patchFile]');
+    process.exit(1);
+  }
+  
+  let patch = null;
+  if (patchFile) {
+    try {
+      patch = readFileSync(patchFile, 'utf8');
+    } catch (e) {
+      console.error('Cannot read patch file:', e.message);
+    }
+  }
+  
+  const success = logPayload(taskId, workspaceId, patch, {
+    source: 'cli',
+    patchFile: patchFile || null
+  });
+  
+  if (success) {
+    console.log('PAYLOAD_LOGGED:', taskId);
+    process.exit(0);
+  } else {
+    console.error('PAYLOAD_LOG_FAILED');
+    process.exit(1);
+  }
+}
 
 export function logPayload(taskId, workspaceId, patch, metadata = {}) {
   const entry = {
