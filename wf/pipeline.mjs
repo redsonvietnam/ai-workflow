@@ -32,6 +32,12 @@ function escapesRoot(rel) {
   if (rel === '' || isAbsolute(rel)) return true;
   return rel.split(/[\\/]+/).some((seg) => seg === '..');
 }
+// (ii) Windows strip semantics: segment không được kết thúc bằng space/dot (trừ '.' và '..'),
+// nếu không '.env ' sẽ thành '.env' ở tầng FS và bypass blocklist.
+function winNormalize(rawPath) {
+  if (!WIN) return rawPath;
+  return rawPath.split(/[\\/]+/).map((seg) => (seg === '.' || seg === '..') ? seg : seg.replace(/[ .]+$/, '')).join('/');
+}
 function inRoot(candidate) {
   const rel = relative(ROOT_REAL, candidate);
   if (escapesRoot(rel)) return false;
@@ -62,7 +68,8 @@ function realpathResolved(p) {
 // F1: một hàm validate duy nhất cho make và apply (Claude: không vá riêng lẻ).
 // Trả về { ok, abs, rel } hoặc { ok:false, reason } — reason ∈ TRAVERSAL | BLOCKED_PATH.
 export function validateWorkspacePath(raw) {
-  const abs = isAbsolute(raw) ? resolve(raw) : resolve(ROOT, raw);
+  const normRaw = winNormalize(raw);
+  const abs = isAbsolute(normRaw) ? resolve(normRaw) : resolve(ROOT, normRaw);
   const rel = relative(ROOT, abs);
   if (escapesRoot(rel)) return { ok: false, reason: 'TRAVERSAL', path: raw };
   const real = realpathResolved(abs);
