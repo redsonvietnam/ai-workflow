@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // T151-B: Payload logging cho CodeLocal apply_patch
 // Ghi nguyên văn patch/envelope gửi vào CodeLocal cho mọi lần gọi
-import { appendFileSync, mkdirSync, readFileSync } from 'node:fs';
+import { appendFileSync, mkdirSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -12,47 +12,32 @@ const PAYLOAD_LOG = join(LOG_DIR, 'code-local-payloads.jsonl');
 // Đảm bảo log dir tồn tại
 try { mkdirSync(LOG_DIR, { recursive: true }); } catch {}
 
-// CLI mode: node wf/payload-log.mjs <taskId> <workspaceId> <patchFile>
-if (process.argv[1] && process.argv[1].endsWith('payload-log.mjs')) {
-  const [taskId, workspaceId, patchFile] = process.argv.slice(2);
-  if (!taskId || !workspaceId) {
-    console.error('Usage: node wf/payload-log.mjs <taskId> <workspaceId> [patchFile]');
-    process.exit(1);
-  }
-  
-  let patch = null;
-  if (patchFile) {
-    try {
-      patch = readFileSync(patchFile, 'utf8');
-    } catch (e) {
-      console.error('Cannot read patch file:', e.message);
-    }
-  }
-  
-  const success = logPayload(taskId, workspaceId, patch, {
-    source: 'cli',
-    patchFile: patchFile || null
-  });
-  
-  if (success) {
-    console.log('PAYLOAD_LOGGED:', taskId);
-    process.exit(0);
-  } else {
-    console.error('PAYLOAD_LOG_FAILED');
-    process.exit(1);
-  }
+const SECRET_PATTERNS = [
+  /\bsk-[a-zA-Z0-9_-]{8,}\b/g,
+  /\bAIza[a-zA-Z0-9_-]{10,}\b/g,
+  /\bghp_[a-zA-Z0-9]{20,}\b/g,
+  /\bgithub_pat_[a-zA-Z0-9_]{20,}\b/g,
+  /\bBearer\s+[a-zA-Z0-9._-]{20,}\b/g,
+  /\b(password|passwd|secret|token|api[_-]?key)\s*[=:]\s*['"]?[^\s'"]{8,}['"]?/gi,
+];
+
+export function redact(text) {
+  if (!text) return text;
+  let out = String(text);
+  for (const re of SECRET_PATTERNS) out = out.replace(re, '[REDACTED]');
+  return out;
 }
 
 export function logPayload(taskId, workspaceId, patch, metadata = {}) {
+  const redactedPatch = patch ? redact(patch) : patch;
   const entry = {
     ts: new Date().toISOString(),
     taskId,
     workspaceId,
     patchBytes: patch ? Buffer.byteLength(patch, 'utf8') : 0,
-    patchPreview: patch ? patch.slice(0, 500) : null,
-    patchHeaders: extractPatchHeaders(patch),
+    patchPreview: redactedPatch ? redactedPatch.slice(0, 500) : null,
+    patchHeaders: extractPatchHeaders(redactedPatch),
     metadata,
-    // Lưu ý: KHÔNG log secrets. Chỉ log path và headers.
   };
   
   try {
@@ -78,4 +63,4 @@ function extractPatchHeaders(patch) {
 }
 
 // Export default để import từ nơi khác
-export default { logPayload };
+export default { logPayload, redact };

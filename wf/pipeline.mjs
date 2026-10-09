@@ -3,6 +3,7 @@
 import { createHash } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 import { readFileSync, writeFileSync, mkdirSync, existsSync, openSync, closeSync, unlinkSync, renameSync, realpathSync } from 'node:fs';
+import { logPayload } from './payload-log.mjs';
 import { dirname, join, resolve, sep, isAbsolute, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -606,6 +607,8 @@ if (cmd === 'make') {
     for (const fp of o.files.split(',')) {
       const abs = resolve(ROOT, fp);
       if (!norm(abs).startsWith(norm(ROOT) + '/')) { console.error(`TRAVERSAL: ${fp}`); process.exit(2); }
+      const rel = norm(abs).slice(norm(ROOT).length + 1);
+      if (/(^|\/)(\.git|\.env|\.ssh|\.aws)(\/|$)/i.test(rel)) { console.error(`BLOCKED_PATH: ${fp}`); process.exit(2); }
       if (!existsSync(abs)) { console.error(`FILE_MISSING: ${fp}`); process.exit(2); }
       fileLines.push(`FILE_SHA256: ${fp}=${sha256(readFileSync(abs))}`);
     }
@@ -744,6 +747,10 @@ if (cmd === 'make') {
         written.push(e.rel);
       }
       result = { ok: true, written };
+      try {
+        const preview = resolved.map(e => `+++ b/${e.rel}\n${e.content.slice(0, 200)}`).join('\n---\n');
+        logPayload('apply', 'ai-workflow', preview, { source: 'apply-cmd', files: written });
+      } catch { /* payload log best-effort */ }
     }
   } catch (err) {
     result = { ok: false, reason: 'APPLY_ERROR', message: String(err && err.message || err) }; exitCode = 8;
