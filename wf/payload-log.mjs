@@ -14,9 +14,17 @@ try { mkdirSync(LOG_DIR, { recursive: true }); } catch {}
 
 const SECRET_PATTERNS = [
   /\bsk-[a-zA-Z0-9_-]{8,}\b/g,
+  /\bsk-ant-[a-zA-Z0-9_-]{8,}\b/g,
   /\bAIza[a-zA-Z0-9_-]{10,}\b/g,
   /\bghp_[a-zA-Z0-9]{20,}\b/g,
+  /\bgho_[a-zA-Z0-9]{20,}\b/g,
+  /\bghs_[a-zA-Z0-9]{20,}\b/g,
   /\bgithub_pat_[a-zA-Z0-9_]{20,}\b/g,
+  /\bAKIA[0-9A-Z]{16}\b/g,
+  /\beyJ[a-zA-Z0-9_-]{10,}\b/g,
+  /-----BEGIN (RSA|EC|DSA|OPENSSH|PGP) PRIVATE KEY-----[\s\S]*?-----END (RSA|EC|DSA|OPENSSH|PGP) PRIVATE KEY-----/gs,
+  /\bpostgres(?:ql)?:\/\/[^\s]{10,}\b/gi,
+  /\bxox[pbas]-[a-zA-Z0-9-]{10,}\b/g,
   /\bBearer\s+[a-zA-Z0-9._-]{20,}\b/g,
   /\b(password|passwd|secret|token|api[_-]?key)\s*[=:]\s*['"]?[^\s'"]{8,}['"]?/gi,
 ];
