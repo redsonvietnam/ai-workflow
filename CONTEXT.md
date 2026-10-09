@@ -38,3 +38,10 @@ HUMAN → scope/gate
 - **ChatGPT-architect**: thiết kế spec (Think ON).
 - **ChatGPT-executor**: nhận spec, code, self-review.
 - **Claude**: chỉ khi architect UNCERTAIN/block thật sự (tiết kiệm quota).
+
+## Workflow Phase 0–3 (T151–T157)
+- Phase 0–3: được báo cáo hoàn thành; workflow được báo cáo đã merge vào `main` tại `5db2acf` (chưa xác minh Git độc lập trong task này).
+- CodeLocal `apply_patch`: PASS 5/5 ca liên tiếp T151–T155, gồm tạo file, sửa file có sẵn, tạo file trong thư mục con và tên file Unicode; nội dung đều được read-back xác minh.
+- Payload logging: **CHƯA PASS** — T152 chạy CLI exit 0 nhưng không ghi payload mới; cần gọi/xác minh `logPayload()` thực tế.
+- Path traversal detection: **CHƯA XÁC MINH** — T156 bị chặn ở lớp kiểm tra an toàn trước khi nhận được kết quả từ CodeLocal; chưa chứng minh bộ xác thực đường dẫn tự từ chối.
+- Gate: tiếp tục CodeLocal cho các thao tác file thông thường; không tuyên bố logging/path traversal đã hoạt động cho đến khi có bằng chứng trực tiếp.
