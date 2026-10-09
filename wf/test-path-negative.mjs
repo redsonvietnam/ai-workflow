@@ -89,6 +89,16 @@ writeFileSync(join(ROOT, '..notes-t160'), 'N');
 const m23 = runMake(ROOT, '..notes-t160');
 check('P23-no-false-dots', m23.status === 0, `status=${m23.status} err=${m23.stderr.trim()}`);
 
+// (ii) Windows strip semantics: segment kết thúc bằng space/dot không được bypass blocklist
+const m24 = runMake(ROOT, '.env ');
+check('P24-env-trailing-space', m24.status === 2 && /BLOCKED_PATH/.test(m24.stderr), `status=${m24.status} err=${m24.stderr.trim()}`);
+
+const m25 = runMake(ROOT, '.git /config');
+check('P25-git-segment-trailing-space', m25.status === 2 && /BLOCKED_PATH/.test(m25.stderr), `status=${m25.status} err=${m25.stderr.trim()}`);
+
+const m26 = runMake(ROOT, '.env.');
+check('P26-env-trailing-dot', m26.status === 2 && /BLOCKED_PATH/.test(m26.stderr), `status=${m26.status} err=${m26.stderr.trim()}`);
+
 const m11 = runMake(ROOT, 'x/../.git/config');
 check('P11-traversal-combined', m11.status === 2 && /BLOCKED_PATH/.test(m11.stderr), `status=${m11.status} err=${m11.stderr.trim()}`);
 
@@ -145,6 +155,16 @@ check('A-P09c-apply-env-dot', a4c.status === 2 && out(a4c)?.reason === 'BLOCKED_
 
 const a4d = planRun(ROOT, [{ path: 'wf/.envrc', before_sha256: null, content: 'export SECRET=1' }]);
 check('A-P09d-apply-envrc', a4d.status === 2 && out(a4d)?.reason === 'BLOCKED_PATH', `status=${a4d.status} out=${JSON.stringify(out(a4d))}`);
+
+// (ii) apply trailing space/dot — Windows strip semantics, không bypass blocklist
+const a14 = planRun(ROOT, [{ path: 'wf/.env ', before_sha256: null, content: 'SECRET=1' }]);
+check('A-P24-apply-env-trailing-space', a14.status === 2 && out(a14)?.reason === 'BLOCKED_PATH', `status=${a14.status} out=${JSON.stringify(out(a14))}`);
+
+const a15 = planRun(ROOT, [{ path: 'wf/.git ', before_sha256: null, content: 'X' }]);
+check('A-P25-apply-git-trailing-space', a15.status === 2 && out(a15)?.reason === 'BLOCKED_PATH', `status=${a15.status} out=${JSON.stringify(out(a15))}`);
+
+const a16 = planRun(ROOT, [{ path: 'wf/x.env ', before_sha256: null, content: 'OK' }]);
+check('A-P26-apply-xenv-trailing-space-ok', a16.status === 0 && out(a16)?.ok === true, `status=${a16.status} out=${JSON.stringify(out(a16))}`);
 
 const a5 = planRun(ROOT, [{ path: 't160-root.txt', before_sha256: null, content: 'R' }]);
 check('A-P19-root-not-allowed', a5.status === 2 && out(a5)?.reason === 'NOT_ALLOWED', `status=${a5.status} out=${JSON.stringify(out(a5))}`);
