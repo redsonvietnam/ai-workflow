@@ -113,7 +113,10 @@ try { m16 = runMake(ROOT, 'wf/safe\u0000../x.md'); } catch { /* spawn rejected N
 if (!m16) check('P16-nul-byte', true, 'spawn отклонил NUL arg (safe, no process)');
 else check('P16-nul-byte', m16.status !== 0 && !existsSync(join(ROOT, 'wf', 'safe\u0000../x.md')), `status=${m16.status} err=${(m16.stderr || '').trim().slice(0, 120)}`);
 
-skip('P17-case-drive', 'known risk per Claude: casing normalization ổ đĩa hoãn lại');
+skip('P17-case-drive', 'KNOWN LIMITATION (P17): Windows drive letter casing normalization deferred. ' +
+  'FS is case-insensitive but path normalization uses lowercase. ' +
+  'Risk: C:\\ vs c:\\ paths may be treated differently. ' +
+  'Deferred per Claude decision: accept risk, document limitation, handle in future if needed.');
 
 writeFileSync(join(ROOT, 'wf', 'abs-in.txt'), 'A');
 const m18 = runMake(ROOT, join(ROOT, 'wf', 'abs-in.txt'));
@@ -132,7 +135,11 @@ writeFileSync(join(ROOT, 'docs', '.environment'), 'N');
 const m19c = runMake(ROOT, 'docs/.environment');
 check('P19c-dot-environment', m19c.status === 0 && !/BLOCKED_PATH/.test(m19c.stderr), `status=${m19c.status} err=${m19c.stderr.trim()}`);
 
-skip('P20-toctou', 'known risk per Claude: ghi nhận giới hạn thiết kế, không chống race');
+skip('P20-toctou', 'KNOWN LIMITATION (P20): Time-of-Check-Time-of-Use (TOCTOU) race condition not mitigated. ' +
+  'Window exists between validateWorkspacePath() check and writeFileSync/renameSync execution. ' +
+  'Attacker could replace target with symlink/junction between check and write. ' +
+  'Mitigation (e.g., open with O_NOFOLLOW, atomic rename) deferred per Claude decision: ' +
+  'accept risk, document limitation, handle in future if needed.');
 
 // ===== GROUP 2: apply (plan) =====
 const a1 = planRun(ROOT, [{ path: '../escape-plan.txt', before_sha256: null, content: 'E' }]);
@@ -199,6 +206,9 @@ try {
 }
 
 // P14b: file symlink (không phải dir) trỏ ra ngoài — ghi qua symlink làm thay đổi đích thật
+// REQUIRES: Windows Developer Mode enabled (Settings > Privacy & security > For developers > Developer Mode)
+// or CI environment with symlink support (Ubuntu/macOS CI).
+// On Windows without Developer Mode: EPERM: operation not permitted
 try {
   const targetReal = join(outDir, 'target.txt');
   writeFileSync(targetReal, 'BEFORE');
@@ -211,7 +221,7 @@ try {
   check('P14b-file-symlink', a12.status !== 0 && !hijacked, `status=${a12.status} hijacked=${hijacked} out=${JSON.stringify(out(a12))}`);
   try { unlinkSync(flink); } catch { /* bỏ qua */ }
 } catch (e) {
-  skip('P14b-file-symlink', 'file symlink create failed (EPERM?): ' + e.message);
+  skip('P14b-file-symlink', 'file symlink requires Windows Developer Mode or CI Ubuntu/macOS: ' + e.message);
 }
 
 // P15b: junction lồng hai tầng (j2 -> j1 -> ngoài ws)
