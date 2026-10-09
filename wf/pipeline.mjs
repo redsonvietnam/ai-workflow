@@ -2,12 +2,14 @@
 // WF:v1 pipeline — HASH/SEQ do script tính, KHÔNG nhờ model.
 import { createHash } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
-import { readFileSync, writeFileSync, mkdirSync, existsSync, openSync, closeSync, unlinkSync, renameSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdirSync, existsSync, openSync, closeSync, unlinkSync, renameSync, realpathSync } from 'node:fs';
 import { dirname, join, resolve, sep, isAbsolute, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const SCRIPT_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const ROOT = process.env.WF_ROOT ? resolve(process.env.WF_ROOT) : SCRIPT_ROOT;
+let ROOT_REAL;
+try { ROOT_REAL = realpathSync(ROOT); } catch { console.error('ROOT_REAL_FAILED'); process.exit(2); }
 const WF = join(ROOT, 'wf');
 const STATE = join(WF, 'state.json');
 const LOG = join(ROOT, 'LOG.md');
@@ -22,6 +24,23 @@ function saveState(s) {
   renameSync(tmp, STATE);
 }
 export function sha256(s) { return createHash('sha256').update(s, 'utf8').digest('hex'); }
+const WIN = process.platform === 'win32';
+const norm = (p) => WIN ? p.replace(/\\/g, '/').toLowerCase() : p.replace(/\\/g, '/');
+function inRoot(candidate) {
+  const rel = relative(ROOT_REAL, candidate);
+  if (rel === '' || rel.startsWith('..')) return false;
+  return !isAbsolute(rel);
+}
+function safeContain(abs) {
+  let real;
+  try { real = realpathSync(abs); } catch { real = null; }
+  if (real) return inRoot(real);
+  let dir = dirname(abs);
+  while (true) {
+    try { const rd = realpathSync(dir); return inRoot(rd); }
+    catch { const parent = dirname(dir); if (parent === dir) return false; dir = parent; }
+  }
+}
 
 export function canonical(v) {
   if (Array.isArray(v)) return '[' + v.map(canonical).join(',') + ']';
@@ -581,7 +600,18 @@ const [cmd, ...args] = process.argv.slice(2);
 if (cmd === 'make') {
   const o = {};
   for (const a of args) { const i = a.indexOf('='); o[a.slice(0, i)] = a.slice(i + 1); }
-  const { envelope, hash, seq } = makeEnvelope({ task: o.task, role: o.role || 'CHATGPT', objective: o.objective, ask: o.ask, input: o.input || '', contextRef: o.contextRef || '', constraints: o.constraints ? o.constraints.split('|') : [] });
+  let input = o.input || '';
+  if (o.files) {
+    const fileLines = [];
+    for (const fp of o.files.split(',')) {
+      const abs = resolve(ROOT, fp);
+      if (!norm(abs).startsWith(norm(ROOT) + '/')) { console.error(`TRAVERSAL: ${fp}`); process.exit(2); }
+      if (!existsSync(abs)) { console.error(`FILE_MISSING: ${fp}`); process.exit(2); }
+      fileLines.push(`FILE_SHA256: ${fp}=${sha256(readFileSync(abs))}`);
+    }
+    input = fileLines.join('\n') + '\n' + input;
+  }
+  const { envelope, hash, seq } = makeEnvelope({ task: o.task, role: o.role || 'CHATGPT', objective: o.objective, ask: o.ask, input, contextRef: o.contextRef || '', constraints: o.constraints ? o.constraints.split('|') : [] });
   console.log(envelope);
   console.error(`HASH=${hash} SEQ=${seq}`);
 } else if (cmd === 'parse') {
@@ -724,6 +754,63 @@ if (cmd === 'make') {
   }
   console.log(JSON.stringify(result, null, 2));
   process.exit(exitCode);
+} else if (cmd === 'plan-extract') {
+  const file = args[0];
+  if (!file || !existsSync(file)) { console.log(JSON.stringify({ ok: false, reason: 'PLAN_NOT_FOUND' }, null, 2)); process.exit(2); }
+  const raw = readFileSync(file, 'utf8');
+  const blocks = [...raw.matchAll(/```json\s*\n([\s\S]*?)```/g)];
+  let plan = null;
+  for (let i = blocks.length - 1; i >= 0; i--) {
+    try { const p = JSON.parse(blocks[i][1]); if (p && Array.isArray(p.files)) { plan = p; break; } } catch { /* continue */ }
+  }
+  if (!plan) { console.log(JSON.stringify({ ok: false, reason: 'PLAN_NOT_FOUND' }, null, 2)); process.exit(2); }
+  for (const f of plan.files) {
+    if (!f || typeof f.path !== 'string' || f.path.length === 0 || typeof f.content !== 'string') {
+      console.log(JSON.stringify({ ok: false, reason: 'PLAN_MALFORMED', entry: f }, null, 2));
+      process.exit(2);
+    }
+  }
+  plan.files = plan.files.map((f) => { const { before_sha256, ...rest } = f; return rest; });
+  const extractPath = join(WF, 'plan.extracted.json');
+  writeFileSync(extractPath, JSON.stringify(plan, null, 2) + '\n');
+  console.log(JSON.stringify({ ok: true, files: plan.files.map((f) => f.path) }, null, 2));
+} else if (cmd === 'plan-prepare') {
+  const planPath = args[0];
+  if (!planPath || !existsSync(planPath)) { console.log(JSON.stringify({ ok: false, reason: 'PLAN_NOT_FOUND' }, null, 2)); process.exit(2); }
+  let envPath = null;
+  for (let i = 1; i < args.length; i++) if (args[i] === '--envelope') envPath = args[i + 1];
+  if (!envPath || !existsSync(envPath)) { console.log(JSON.stringify({ ok: false, reason: 'ENVELOPE_MISSING' }, null, 2)); process.exit(2); }
+  let plan;
+  try { plan = JSON.parse(readFileSync(planPath, 'utf8')); } catch { console.log(JSON.stringify({ ok: false, reason: 'PLAN_MALFORMED' }, null, 2)); process.exit(2); }
+  if (!Array.isArray(plan.files)) { console.log(JSON.stringify({ ok: false, reason: 'PLAN_MALFORMED' }, null, 2)); process.exit(2); }
+  const envText = readFileSync(envPath, 'utf8');
+  const envHashes = new Map();
+  for (const m of envText.matchAll(/FILE_SHA256:\s*(\S+?)=([0-9a-f]{64})/g)) envHashes.set(m[1], m[2]);
+  const prepared = [];
+  for (const f of plan.files) {
+    if (!f || typeof f.path !== 'string' || f.path.length === 0 || typeof f.content !== 'string') {
+      console.log(JSON.stringify({ ok: false, reason: 'PLAN_MALFORMED', entry: f }, null, 2));
+      process.exit(2);
+    }
+    const abs = resolve(ROOT, f.path);
+    if (!norm(abs).startsWith(norm(ROOT) + '/') || !safeContain(abs)) {
+      console.log(JSON.stringify({ ok: false, reason: 'TRAVERSAL', path: f.path }, null, 2));
+      process.exit(2);
+    }
+    const rel = relative(ROOT, abs);
+    const envHash = envHashes.get(rel) ?? envHashes.get(f.path) ?? null;
+    if (envHash) {
+      prepared.push({ ...f, before_sha256: envHash });
+    } else if (!existsSync(abs)) {
+      prepared.push({ ...f, before_sha256: null });
+    } else {
+      console.log(JSON.stringify({ ok: false, reason: 'NOT_IN_ENVELOPE', path: f.path }, null, 2));
+      process.exit(2);
+    }
+  }
+  const outPath = join(WF, 'plan.prepared.json');
+  writeFileSync(outPath, JSON.stringify({ files: prepared }, null, 2) + '\n');
+  console.log(JSON.stringify({ ok: true, prepared: outPath, files: prepared.map((f) => ({ path: f.path, before: f.before_sha256 })) }, null, 2));
 } else if (cmd === 'task') {
   const task = args[0];
   const action = args[1];
