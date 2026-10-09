@@ -120,7 +120,7 @@ Mock fixtures test parser/retry/chunking/git gate với 0 quota AI thật. Chạ
 - **Giữ nguyên:** T128/T129 hoãn theo điều kiện D12; lease reference từ ai-coding-core gộp vào điều kiện mở T129 (không task mới).
 - **Roadmap:** T125→T127 (xong) → 1 task thật qua cả 3 cơ chế → audit → T131→T134 → mới đánh giá mở T128/T129.
 
-## D14. Scrub PII + re-anchor T134 (2026-10-09)
+## D14. [PROPOSED] Scrub PII + re-anchor T134 (2026-10-09)
 - **Scrub PII (T148-B):** thay placeholder `<user>`, `<chat-url>`, `<workspace-path>`, `<user-home>`, `<service>`, `<id>` trong 15 file tracked (CONTEXT.md, DECISIONS.md, LOG.md, wf/t102-raw.md, t103-raw.md, t105-raw.md, t112-grok-raw.md, t134-spec.md, t134-envelope.txt, t134-pcm-constraints.md). LOG.md: chỉ sửa dòng văn xuôi, giữ nguyên dòng có eventHash.
 - **Re-anchor T134:** bundle T134 đã re-bundle đủ 9 file sau scrub. Anchor cũ `450ef9b408aa8cecb…` → anchor mới `3f8ebe64813ebc5dde25575f63a53a53a30fd806e1b7770ca4d7f4b58ae4a3c8`. Git commit trước scrub: `6712e4f`.
 - **test-t134.mjs:** SKIP exit 0 nếu file nguồn ngoài repo không tồn tại. Loại trừ test-t134 trong ci.yml đã gỡ.
