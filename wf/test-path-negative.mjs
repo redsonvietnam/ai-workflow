@@ -1,38 +1,29 @@
-// F1 suite — path validation âm tính (P01-P20) + parser differential.
-// Chạy trên HEAD trước fix => thu thập danh sách ca ĐỎ, rồi mới sửa code.
+﻿// F1 suite ΓÇö path validation ├óm t├¡nh (P01-P20) + parser differential.
+// Chß║íy tr├¬n HEAD tr╞░ß╗¢c fix => thu thß║¡p danh s├ích ca ─Éß╗Ä, rß╗ôi mß╗¢i sß╗¡a code.
 import { spawnSync } from 'node:child_process';
 import { mkdtempSync, mkdirSync, writeFileSync, existsSync, rmSync, symlinkSync, readFileSync, unlinkSync } from 'node:fs';
 import { join, dirname, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { tmpDir, run as harnessRun, parse, check, skip, done } from './lib/test-harness.mjs';
 
 const WF = dirname(fileURLToPath(import.meta.url));
 const PIPE = join(WF, 'pipeline.mjs');
-let failed = 0, skipped = 0;
-function check(name, ok, detail = '') {
-  console.log((ok ? 'PASS ' : 'FAIL ') + name + (detail ? ' ' + detail : ''));
-  if (!ok) failed++;
-}
-function skip(name, why) { console.log('SKIP ' + name + ' ' + why); skipped++; }
-function run(root, argv) {
-  return spawnSync(process.execPath, [PIPE, ...argv], { encoding: 'utf8', env: { ...process.env, WF_ROOT: root }, timeout: 15000 });
-}
+function run(root, argv) { return harnessRun(root, argv); }
 function runMake(root, filesArg) {
-  return run(root, ['make', 'task=T160', 'objective=neg', `files=${filesArg}`]);
+  return run(root, ['make', 'task=T160', 'objective=neg', 'files=' + filesArg]);
 }
 function planRun(root, files) {
   const p = join(root, 'plan-t160.json');
-  // with before=null: dọn target trước (khử STALE từ lần chạy trước, giữ test lặp lại được)
   for (const f of files) {
     if (f && f.before_sha256 === null && typeof f.path === 'string') {
-      try { unlinkSync(resolve(root, f.path)); } catch { /* chưa tồn tại */ }
+      try { unlinkSync(resolve(root, f.path)); } catch {}
     }
   }
   writeFileSync(p, JSON.stringify({ files }));
   return run(root, ['apply', p]);
 }
-function out(r) { try { return JSON.parse(r.stdout); } catch { return null; } }
-
-const ROOT = mkdtempSync(join(process.env.TEMP || process.env.TMP, 't160-'));
+const out = parse;
+const ROOT = tmpDir('t160-');
 mkdirSync(join(ROOT, 'wf'), { recursive: true });
 writeFileSync(join(ROOT, 'wf', 'state.json'), JSON.stringify({ seq: {}, tasks: {} }, null, 2));
 const junctions = [];
@@ -84,12 +75,12 @@ writeFileSync(join(ROOT, 'wf', 'safe.md'), 'S');
 const m22 = runMake(ROOT, 'wf/./safe.md');
 check('P22-dot-segment-ok', m22.status === 0, `status=${m22.status} err=${m22.stderr.trim()}`);
 
-// P23: tên file '..notes' không phải traversal (false-positive do review ChatGPT nêu — component check)
+// P23: t├¬n file '..notes' kh├┤ng phß║úi traversal (false-positive do review ChatGPT n├¬u ΓÇö component check)
 writeFileSync(join(ROOT, '..notes-t160'), 'N');
 const m23 = runMake(ROOT, '..notes-t160');
 check('P23-no-false-dots', m23.status === 0, `status=${m23.status} err=${m23.stderr.trim()}`);
 
-// (ii) Windows strip semantics: segment kết thúc bằng space/dot không được bypass blocklist
+// (ii) Windows strip semantics: segment kß║┐t th├║c bß║▒ng space/dot kh├┤ng ─æ╞░ß╗úc bypass blocklist
 const m24 = runMake(ROOT, '.env ');
 check('P24-env-trailing-space', m24.status === 2 && /BLOCKED_PATH/.test(m24.stderr), `status=${m24.status} err=${m24.stderr.trim()}`);
 
@@ -110,7 +101,7 @@ check('P13-prefix-sibling', m13.status === 2 && /TRAVERSAL/.test(m13.stderr), `s
 
 let m16 = null;
 try { m16 = runMake(ROOT, 'wf/safe\u0000../x.md'); } catch { /* spawn rejected NUL */ }
-if (!m16) check('P16-nul-byte', true, 'spawn отклонил NUL arg (safe, no process)');
+if (!m16) check('P16-nul-byte', true, 'spawn ╨╛╤é╨║╨╗╨╛╨╜╨╕╨╗ NUL arg (safe, no process)');
 else check('P16-nul-byte', m16.status !== 0 && !existsSync(join(ROOT, 'wf', 'safe\u0000../x.md')), `status=${m16.status} err=${(m16.stderr || '').trim().slice(0, 120)}`);
 
 skip('P17-case-drive', 'KNOWN LIMITATION (P17): Windows drive letter casing normalization deferred. ' +
@@ -149,7 +140,7 @@ const a2 = planRun(ROOT, [{ path: 'wf/../../escape-plan2.txt', before_sha256: nu
 check('A-P02-apply-nested-escape', a2.status === 2 && out(a2)?.reason === 'TRAVERSAL', `status=${a2.status} out=${JSON.stringify(out(a2))}`);
 
 const a3 = planRun(ROOT, [{ path: 'wf/.env.local', before_sha256: null, content: 'SECRET=1' }]);
-check('A-P07-apply-env-local', a3.status !== 0, `status=${a3.status} out=${JSON.stringify(out(a3))} (mong đợi bị chặn)`);
+check('A-P07-apply-env-local', a3.status !== 0, `status=${a3.status} out=${JSON.stringify(out(a3))} (mong ─æß╗úi bß╗ï chß║╖n)`);
 
 const a4 = planRun(ROOT, [{ path: 'wf/.env', before_sha256: null, content: 'SECRET=1' }]);
 check('A-P09-apply-env', a4.status === 2 && out(a4)?.reason === 'BLOCKED_PATH', `status=${a4.status} out=${JSON.stringify(out(a4))}`);
@@ -163,7 +154,7 @@ check('A-P09c-apply-env-dot', a4c.status === 2 && out(a4c)?.reason === 'BLOCKED_
 const a4d = planRun(ROOT, [{ path: 'wf/.envrc', before_sha256: null, content: 'export SECRET=1' }]);
 check('A-P09d-apply-envrc', a4d.status === 2 && out(a4d)?.reason === 'BLOCKED_PATH', `status=${a4d.status} out=${JSON.stringify(out(a4d))}`);
 
-// (ii) apply trailing space/dot — Windows strip semantics, không bypass blocklist
+// (ii) apply trailing space/dot ΓÇö Windows strip semantics, kh├┤ng bypass blocklist
 const a14 = planRun(ROOT, [{ path: 'wf/.env ', before_sha256: null, content: 'SECRET=1' }]);
 check('A-P24-apply-env-trailing-space', a14.status === 2 && out(a14)?.reason === 'BLOCKED_PATH', `status=${a14.status} out=${JSON.stringify(out(a14))}`);
 
@@ -179,8 +170,8 @@ check('A-P19-root-not-allowed', a5.status === 2 && out(a5)?.reason === 'NOT_ALLO
 const a6 = planRun(ROOT, [{ path: join(ROOT, 'wf', 'abs-target.txt'), before_sha256: null, content: 'ABS' }]);
 check('A-P18-abs-inside-apply', a6.status === 0 && out(a6)?.ok === true, `status=${a6.status} out=${JSON.stringify(out(a6))}`);
 
-// P14: junction trong ws trỏ ra ngoài
-const outDir = mkdtempSync(join(process.env.TEMP || process.env.TMP, 't160out-'));
+// P14: junction trong ws trß╗Å ra ngo├ái
+const outDir = tmpDir('t160out-');
 try {
   const jlink = join(ROOT, 'wf', 'jlink');
   symlinkSync(outDir, jlink, 'junction');
@@ -192,7 +183,7 @@ try {
   skip('P14-symlink-out', 'junction create failed: ' + e.message);
 }
 
-// P15: junction trỏ vào .git giả
+// P15: junction trß╗Å v├áo .git giß║ú
 try {
   mkdirSync(join(ROOT, '.git'), { recursive: true });
   const jgit = join(ROOT, 'wf', 'jgit');
@@ -205,7 +196,7 @@ try {
   skip('P15-symlink-to-git', 'junction create failed: ' + e.message);
 }
 
-// P14b: file symlink (không phải dir) trỏ ra ngoài — ghi qua symlink làm thay đổi đích thật
+// P14b: file symlink (kh├┤ng phß║úi dir) trß╗Å ra ngo├ái ΓÇö ghi qua symlink l├ám thay ─æß╗òi ─æ├¡ch thß║¡t
 // REQUIRES: Windows Developer Mode enabled (Settings > Privacy & security > For developers > Developer Mode)
 // or CI environment with symlink support (Ubuntu/macOS CI).
 // On Windows without Developer Mode: EPERM: operation not permitted
@@ -219,7 +210,7 @@ try {
   try { after = readFileSync(targetReal, 'utf8'); } catch { after = null; }
   const hijacked = after === 'HIJACK';
   check('P14b-file-symlink', a12.status !== 0 && !hijacked, `status=${a12.status} hijacked=${hijacked} out=${JSON.stringify(out(a12))}`);
-  try { unlinkSync(flink); } catch { /* bỏ qua */ }
+  try { unlinkSync(flink); } catch { /* bß╗Å qua */ }
 } catch (e) {
   const isEperm = e.code === 'EPERM' || e.message?.includes('EPERM') || e.message?.includes('operation not permitted');
   const msg = isEperm 
@@ -228,7 +219,7 @@ try {
   skip('P14b-file-symlink', msg);
 }
 
-// P15b: junction lồng hai tầng (j2 -> j1 -> ngoài ws)
+// P15b: junction lß╗ông hai tß║ºng (j2 -> j1 -> ngo├ái ws)
 try {
   const j2 = join(ROOT, 'wf', 'j2');
   symlinkSync(join(ROOT, 'wf', 'jlink'), j2, 'junction');
@@ -244,14 +235,14 @@ try {
 const a9 = planRun(ROOT, [{ path: 'wf/safe\u0000x.txt', before_sha256: null, content: 'N' }]);
 check('A-P16-nul-plan', a9.status !== 0 && !existsSync(join(ROOT, 'wf', 'safe\u0000x.txt')), `status=${a9.status} out=${JSON.stringify(out(a9))}`);
 
-// Parser differential: path được ghi phải là path đã chuẩn hóa
+// Parser differential: path ─æ╞░ß╗úc ghi phß║úi l├á path ─æ├ú chuß║⌐n h├│a
 const a10 = planRun(ROOT, [{ path: 'wf/sub/../pd-target.txt', before_sha256: null, content: 'PD' }]);
 check('PD-canonical-landing', a10.status === 0 && existsSync(join(ROOT, 'wf', 'pd-target.txt')), `status=${a10.status} landed=${existsSync(join(ROOT, 'wf', 'pd-target.txt'))}`);
 
 const a11 = planRun(ROOT, [{ path: 'wf/sub/../../pd-escape.txt', before_sha256: null, content: 'E' }]);
 check('PD-escape-rejected', a11.status === 2 && out(a11)?.reason === 'NOT_ALLOWED', `status=${a11.status} out=${JSON.stringify(out(a11))}`);
 
-// PD-stub: ghi lại đối số write/rename qua --import, đối chiếu với path đã validate
+// PD-stub: ghi lß║íi ─æß╗æi sß╗æ write/rename qua --import, ─æß╗æi chiß║┐u vß╗¢i path ─æ├ú validate
 const nodeMajor = Number(process.versions.node.split('.')[0]);
 const nodeMinor = Number(process.versions.node.split('.')[1]);
 if (nodeMajor > 20 || (nodeMajor === 20 && nodeMinor >= 6)) {
@@ -272,11 +263,11 @@ if (nodeMajor > 20 || (nodeMajor === 20 && nodeMinor >= 6)) {
   const renameTarget = lines.length ? lines[lines.length - 1].slice('STUB_R:'.length).split('=>')[1] : null;
   check('PD-stub-validate-eq-write', r.status === 0 && renameTarget === targetAbs, `status=${r.status} renameTarget=${renameTarget} expected=${targetAbs}`);
 } else {
-  skip('PD-stub-validate-eq-write', 'node < 20.6, không có --import');
+  skip('PD-stub-validate-eq-write', 'node < 20.6, kh├┤ng c├│ --import');
 }
 
-// ===== GROUP 3: make-vs-apply — cùng bảng đầu vào, cùng kết luận =====
-// Kết luận ∈ {ALLOWED, TRAVERSAL, BLOCKED_PATH}; NOT_ALLOWED/OTHER = lệch.
+// ===== GROUP 3: make-vs-apply ΓÇö c├╣ng bß║úng ─æß║ºu v├áo, c├╣ng kß║┐t luß║¡n =====
+// Kß║┐t luß║¡n Γêê {ALLOWED, TRAVERSAL, BLOCKED_PATH}; NOT_ALLOWED/OTHER = lß╗çch.
 writeFileSync(join(ROOT, 'wf', 'compare-safe.md'), 'S');
 const compareTable = [
   ['wf/compare-safe.md', 'ALLOWED'],
@@ -313,5 +304,4 @@ try { for (const j of junctions) spawnSync('cmd', ['/c', 'rmdir', j], { stdio: '
 try { rmSync(outDir, { recursive: true, force: true }); } catch { /* best effort */ }
 try { rmSync(ROOT, { recursive: true, force: true }); } catch { /* best effort */ }
 
-console.log(`---\n${failed === 0 ? 'ALL PASS' : 'FAILED: ' + failed}, skipped: ${skipped}`);
-process.exit(failed === 0 ? 0 : 1);
+done();

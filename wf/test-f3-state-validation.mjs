@@ -5,18 +5,12 @@ import { mkdtempSync, mkdirSync, writeFileSync, existsSync, rmSync, readFileSync
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createHash } from 'node:crypto';
+import { tmpDir, run as harnessRun, parse, check, done } from './lib/test-harness.mjs';
 
 const WF = dirname(fileURLToPath(import.meta.url));
 const PIPE = join(WF, 'pipeline.mjs');
-let failed = 0, passed = 0;
-function check(name, ok, detail = '') {
-  console.log((ok ? 'PASS ' : 'FAIL ') + name + (detail ? ' ' + detail : ''));
-  if (ok) passed++; else failed++;
-}
-function run(root, argv) {
-  return spawnSync(process.execPath, [PIPE, ...argv], { encoding: 'utf8', env: { ...process.env, WF_ROOT: root }, timeout: 15000 });
-}
-function out(r) { try { return JSON.parse(r.stdout); } catch { return null; } }
+function run(root, argv) { return harnessRun(root, argv); }
+const out = parse;
 function checkOutcome(r, wantReason, name) {
   const o = out(r);
   if (!o) { check(name, false, 'no stdout'); return; }
@@ -38,7 +32,7 @@ function freshState() {
   return { seq: {}, tasks: {}, claudeCalls: { byDate: {}, byTask: {} } };
 }
 
-const ROOT = mkdtempSync(join(process.env.TEMP || process.env.TMP, 'f3-'));
+const ROOT = tmpDir('f3-');
 mkdirSync(join(ROOT, 'wf'), { recursive: true });
 
 // ===== S01: state.json schema valid =====
@@ -147,5 +141,4 @@ checkOutcome(s14b, 'CHAIN_BROKEN', 'S14-chain-broken-detect');
 // ===== CLEANUP =====
 try { rmSync(ROOT, { recursive: true, force: true }); } catch { /* */ }
 
-console.log(`\n=== ${passed}/${passed + failed} passed, ${failed} failed ===`);
-process.exit(failed === 0 ? 0 : 1);
+done();

@@ -5,17 +5,11 @@ import { mkdtempSync, mkdirSync, writeFileSync, rmSync, readFileSync } from 'nod
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createHash } from 'node:crypto';
+import { tmpDir, run as harnessRun, parse, check, done } from './lib/test-harness.mjs';
 
 const WF = dirname(fileURLToPath(import.meta.url));
 const PIPE = join(WF, 'pipeline.mjs');
-let failed = 0, passed = 0;
-function check(name, ok, detail = '') {
-  console.log((ok ? 'PASS ' : 'FAIL ') + name + (detail ? ' ' + detail : ''));
-  if (ok) passed++; else failed++;
-}
-function run(root, argv) {
-  return spawnSync(process.execPath, [PIPE, ...argv], { encoding: 'utf8', env: { ...process.env, WF_ROOT: root }, timeout: 15000 });
-}
+function run(root, argv) { return harnessRun(root, argv); }
 function runMake(root, filesArg) {
   return run(root, ['make', 'task=F2', 'objective=neg', `files=${filesArg}`]);
 }
@@ -24,7 +18,7 @@ function planRun(root, files) {
   writeFileSync(p, JSON.stringify({ files }));
   return run(root, ['apply', p]);
 }
-function out(r) { try { return JSON.parse(r.stdout); } catch { return null; } }
+const out = parse;
 function checkLogLine(r, wantReason, name) {
   // Mỗi nhánh lỗi phải log 1 dòng JSON stderr chứa {outcome, reason}
   // Format kỳ vọng: {"outcome":"ERROR","reason":"TRAVERSAL",...} hoặc {"outcome":"SUCCESS",...}
@@ -58,7 +52,7 @@ function checkOutcome(r, wantReason, name) {
   checkLogLine(r, wantReason, name);
 }
 
-const ROOT = mkdtempSync(join(process.env.TEMP || process.env.TMP, 'f2-'));
+const ROOT = tmpDir('f2-');
 mkdirSync(join(ROOT, 'wf'), { recursive: true });
 writeFileSync(join(ROOT, 'wf', 'state.json'), JSON.stringify({ seq: {}, tasks: {} }, null, 2));
 
@@ -124,5 +118,4 @@ checkOutcome(r17, 'SUCCESS', 'L18-apply-success');
 
 try { rmSync(ROOT, { recursive: true, force: true }); } catch { /* */ }
 
-console.log(`\n=== ${passed}/${passed + failed} passed, ${failed} failed ===`);
-process.exit(failed === 0 ? 0 : 1);
+done();

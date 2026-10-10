@@ -3,21 +3,13 @@ import { spawnSync } from 'node:child_process';
 import { mkdtempSync, writeFileSync, readFileSync, existsSync, mkdirSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { tmpDir, run as harnessRun, parse, check, done } from './lib/test-harness.mjs';
 
 const WF = dirname(fileURLToPath(import.meta.url));
 const PIPE = join(WF, 'pipeline.mjs');
-let failed = 0;
-function check(name, ok, detail = '') {
-  console.log((ok ? 'PASS ' : 'FAIL ') + name + (detail ? ' ' + detail : ''));
-  if (!ok) failed++;
-}
-function run(root, ...argv) {
-  return spawnSync(process.execPath, [PIPE, ...argv], { encoding: 'utf8', env: { ...process.env, WF_ROOT: root }, timeout: 15000 });
-}
-function parseOut(r) {
-  try { return JSON.parse(r.stdout); } catch { return null; }
-}
-const ROOT = mkdtempSync(join(process.env.TEMP || process.env.TMP, 't146-'));
+function run(root, ...argv) { return harnessRun(root, argv); }
+const parseOut = parse;
+const ROOT = tmpDir('t146-');
 mkdirSync(join(ROOT, 'wf'), { recursive: true });
 writeFileSync(join(ROOT, 'wf', 'state.json'), JSON.stringify({ seq: {}, tasks: {} }, null, 2));
 
@@ -138,5 +130,4 @@ if (symlinkOk) {
   check('12-prepare-symlink-escape', true, 'SKIP (symlink unavailable)');
 }
 
-console.log(JSON.stringify({ total: 12, failed }));
-process.exit(failed ? 1 : 0);
+done();
