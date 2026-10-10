@@ -281,19 +281,149 @@ function realpathResolved(p) {
   }
 }
 // F1: một hàm validate duy nhất cho make và apply (Claude: không vá riêng lẻ).
-// Trả về { ok, abs, rel } hoặc { ok:false, reason } — reason ∈ TRAVERSAL | BLOCKED_PATH.
+// Trả về { ok, abs, rel, rawPath, canonicalRel } hoặc { ok:false, reason }.
+
+// Reserved Windows device names (case-insensitive)
+const RESERVED_DEVICES = new Set(['con', 'prn', 'aux', 'nul', 'com1', 'com2', 'com3', 'com4', 'com5', 'com6', 'com7', 'com8', 'com9', 'lpt1', 'lpt2', 'lpt3', 'lpt4', 'lpt5', 'lpt6', 'lpt7', 'lpt8', 'lpt9']);
+
+// Blocked segments (after NFC + lowercase): exact match or prefix
+const BLOCKED_SEGMENTS = new Set(['.git', '.ssh', '.aws', '.envrc', '.env']);
+const BLOCKED_PREFIXES = ['.env.'];
+
+// Tách hàm canonicalizeRel thuần - không chạm đĩa
+function canonicalizeRel(raw) {
+  if (typeof raw !== 'string') return { ok: false, reason: 'ENTRY_INVALID', raw };
+  if (raw.length === 0) return { ok: false, reason: 'ENTRY_INVALID', raw };
+  if (raw.length > 1024) return { ok: false, reason: 'ENTRY_INVALID', raw };
+  if (raw.includes('\u0000')) return { ok: false, reason: 'ENTRY_INVALID', raw };
+
+  // Chuẩn hóa: đổi \ thành / trên mọi OS
+  let normalized = raw.replace(/\\/g, '/');
+
+  // Kiểm tra đường dẫn tuyệt đối kiểu Windows (ổ đĩa hoặc UNC)
+  // Capture drive letter prefix if present
+  let drivePrefix = '';
+  let rest = normalized;
+  const driveMatch = normalized.match(/^([A-Za-z]:)(.*)$/);
+  if (driveMatch) {
+    drivePrefix = driveMatch[1].toUpperCase(); // Normalize to uppercase
+    rest = driveMatch[2];
+  }
+  const isUNC = normalized.startsWith('//');
+
+  // Tách đoạn, xử lý từng đoạn
+  const segments = rest.split('/');
+  const cleanedSegments = [];
+
+  for (const seg of segments) {
+    if (seg === '' || seg === '.') {
+      // Skip empty and current-directory segments
+      continue;
+    }
+    if (seg === '..') {
+      // Parent directory - pop last segment if available
+      if (cleanedSegments.length > 0) {
+        cleanedSegments.pop();
+      } else {
+        // Too many .. - will be caught by escapesRoot later
+        cleanedSegments.push('..');
+      }
+      continue;
+    }
+
+    // Bỏ khoảng trắng và dấu chấm cuối đoạn
+    let cleaned = seg.replace(/[ .]+$/, '');
+    if (cleaned.length === 0) return { ok: false, reason: 'ENTRY_INVALID', raw };
+
+    // Alternate data stream (chứa :) - nhưng không áp dụng cho drive letter
+    if (cleaned.includes(':')) return { ok: false, reason: 'ENTRY_INVALID', raw };
+
+    // Tên thiết bị Windows reserved (case-insensitive, có thể có extension)
+    const baseName = cleaned.split('.')[0].toLowerCase();
+    if (RESERVED_DEVICES.has(baseName)) return { ok: false, reason: 'ENTRY_INVALID', raw };
+
+    cleanedSegments.push(cleaned);
+  }
+
+  const canonical = (drivePrefix ? drivePrefix + '/' : '') + cleanedSegments.join('/');
+
+  // Kiểm tra blocklist theo đoạn (sau NFC + lowercase)
+  const checkPath = (drivePrefix ? drivePrefix.toLowerCase() + '/' : '') + cleanedSegments.map(s => s.toLowerCase()).join('/');
+  const segs = checkPath.split('/');
+  for (const seg of segs) {
+    if (seg === '' || seg === '.' || seg === '..') continue;
+    if (BLOCKED_SEGMENTS.has(seg)) return { ok: false, reason: 'BLOCKED_PATH', raw, canonical };
+    for (const prefix of BLOCKED_PREFIXES) {
+      if (seg.startsWith(prefix)) return { ok: false, reason: 'BLOCKED_PATH', raw, canonical };
+    }
+  }
+
+  return { ok: true, canonical, isWinAbsolute: drivePrefix !== '' || isUNC, drivePrefix };
+}
+
+// F1: một hàm validate duy nhất cho make và apply (Claude: không vá riêng lẻ).
+// Trả về { ok, abs, rel, rawPath, canonicalRel } hoặc { ok:false, reason }.
 export function validateWorkspacePath(raw) {
-  const normRaw = winNormalize(raw);
-  const abs = isAbsolute(normRaw) ? resolve(normRaw) : resolve(ROOT, normRaw);
+  // Pre-check: traversal attempt on raw path (before canonicalization loses .. info)
+  const rawNorm = raw.replace(/\\/g, '/');
+  const rawAbs = isAbsolute(rawNorm) ? resolve(rawNorm) : resolve(ROOT, rawNorm);
+  const rawRel = relative(ROOT, rawAbs);
+  if (escapesRoot(rawRel)) return { ok: false, reason: 'TRAVERSAL', path: raw };
+
+  const canon = canonicalizeRel(raw);
+  if (!canon.ok) return { ok: false, reason: canon.reason, path: raw, canonicalRel: canon.canonical };
+
+  // Resolve path using canonical form
+  let abs;
+  if (canon.isWinAbsolute) {
+    if (!WIN) return { ok: false, reason: 'TRAVERSAL', path: raw, canonicalRel: canon.canonical };
+    abs = resolve(canon.canonical);
+  } else {
+    abs = resolve(ROOT, canon.canonical);
+  }
+
   const rel = relative(ROOT, abs);
-  if (escapesRoot(rel)) return { ok: false, reason: 'TRAVERSAL', path: raw };
-  const real = realpathResolved(abs);
-  if (!real) return { ok: false, reason: 'TRAVERSAL', path: raw }; // fail-closed khi không resolve được realpath
-  const rr = relative(normSeg(ROOT_REAL), normSeg(real));
-  if (escapesRoot(rr)) return { ok: false, reason: 'TRAVERSAL', path: raw };
-  if (BLOCK_RE.test(normSeg(rr))) return { ok: false, reason: 'BLOCKED_PATH', path: raw };
-  if (BLOCK_RE.test(normSeg(rel))) return { ok: false, reason: 'BLOCKED_PATH', path: raw };
-  return { ok: true, abs, rel };
+  if (escapesRoot(rel)) return { ok: false, reason: 'TRAVERSAL', path: raw, canonicalRel: canon.canonical };
+
+  // Realpath with walk-up (like F1) - handles non-existent files by walking up to existing parent
+  let real;
+  try {
+    real = WIN ? realpathSync.native(abs) : realpathSync(abs);
+  } catch {
+    // Walk up to find existing parent
+    let dir = dirname(abs);
+    while (true) {
+      try {
+        real = WIN ? realpathSync.native(dir) : realpathSync(dir);
+        real = join(real, relative(dir, abs));
+        break;
+      } catch {
+        const parent = dirname(dir);
+        if (parent === dir) { real = null; break; }
+        dir = parent;
+      }
+    }
+  }
+  if (!real) return { ok: false, reason: 'TRAVERSAL', path: raw, canonicalRel: canon.canonical };
+
+  const rr = relative(ROOT_REAL, real);
+  if (escapesRoot(rr)) return { ok: false, reason: 'TRAVERSAL', path: raw, canonicalRel: canon.canonical };
+
+  // Blocklist trên realpath (segment-based)
+  const normReal = rr.split(/[\\/]+/).map(s => s.toLowerCase()).join('/');
+  const realSegs = normReal.split('/');
+  for (const seg of realSegs) {
+    if (BLOCKED_SEGMENTS.has(seg)) return { ok: false, reason: 'BLOCKED_PATH', path: raw, canonicalRel: canon.canonical };
+    for (const prefix of BLOCKED_PREFIXES) {
+      if (seg.startsWith(prefix)) return { ok: false, reason: 'BLOCKED_PATH', path: raw, canonicalRel: canon.canonical };
+    }
+  }
+
+  // Blocklist trên relative path (để chặn trước realpath)
+  const normRel = normSeg(rel);
+  if (BLOCK_RE.test(normRel)) return { ok: false, reason: 'BLOCKED_PATH', path: raw, canonicalRel: canon.canonical };
+
+  return { ok: true, abs, rel, rawPath: raw, canonicalRel: canon.canonical };
 }
 
 export function canonical(v) {

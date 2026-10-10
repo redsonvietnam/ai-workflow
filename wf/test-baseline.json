@@ -71,12 +71,12 @@
       "darwin": 0
     }
   },
-  "test-log-debug.mjs": {
-    "minPassed": 0,
+  "test-path-matrix.mjs": {
+    "minPassed": 170,
     "maxSkipped": {
-      "win32": 0,
-      "linux": 0,
-      "darwin": 0
+      "win32": 1,
+      "linux": 1,
+      "darwin": 1
     }
   },
   "test-path-negative.mjs": {
