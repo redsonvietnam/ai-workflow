@@ -6,7 +6,7 @@ import { dirname, join } from 'node:path';
 const WF = dirname(fileURLToPath(import.meta.url));
 const STATE = join(WF, 'state.json');
 const BACKUP = join(WF, 'state.backup-t133.json');
-const FIX = 'T133FIX';
+const FIX = 'T133-FIX';
 const PIPE = join(WF, 'pipeline.mjs');
 
 const run = (...a) => spawnSync(process.execPath, [PIPE, ...a], { encoding: 'utf8' });

@@ -22,11 +22,27 @@ try {
     positional.status === 2 && /usage:/i.test(positionalOutput) && hash() === before,
     'exit=' + positional.status + '; stateUnchanged=' + (hash() === before) + '; output=' + positionalOutput.trim()
   );
-  const writtenState = JSON.parse(readFileSync(statePath, 'utf8'));
+  const badTaskBefore = hash();
+  const badTask = run(ROOT, ['make', 'task=T123/../evil', 'objective=x']);
+  const badTaskOutput = String(badTask.stdout ?? '') + '\n' + String(badTask.stderr ?? '');
+  check(
+    'S-make-invalid-task-id-rejected',
+    badTask.status === 2 && /usage:/i.test(badTaskOutput) && hash() === badTaskBefore,
+    'exit=' + badTask.status + '; unchanged=' + (hash() === badTaskBefore) + '; output=' + badTaskOutput.trim()
+  );
+
+  const invalidState = {
+    seq: { undefined: 1 },
+    tasks: { undefined: { state: 'CREATED', attempts: 0, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() } },
+    claudeCalls: { byDate: {}, byTask: {} },
+  };
+  writeFileSync(statePath, JSON.stringify(invalidState, null, 2) + '\n');
+  const invalidBefore = hash();
+  const stateKeyResult = run(ROOT, ['reap']);
   check(
     'S-state-key-undefined-rejected',
-    !Object.hasOwn(writtenState.seq ?? {}, 'undefined') && !Object.hasOwn(writtenState.tasks ?? {}, 'undefined'),
-    JSON.stringify({ seqKeys: Object.keys(writtenState.seq ?? {}), taskKeys: Object.keys(writtenState.tasks ?? {}) })
+    stateKeyResult.status !== 0 && hash() === invalidBefore && /INVALID_STATE_TASK_ID/.test(String(stateKeyResult.stderr ?? '')),
+    'exit=' + stateKeyResult.status + '; unchanged=' + (hash() === invalidBefore) + '; stderr=' + String(stateKeyResult.stderr ?? '').trim()
   );
 
   const unknown = run(ROOT, ['__w1_2_unknown_command__']);

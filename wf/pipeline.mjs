@@ -20,6 +20,11 @@ function loadState() {
   return JSON.parse(readFileSync(STATE, 'utf8'));
 }
 function saveState(s) {
+  for (const group of ['seq', 'tasks']) {
+    for (const key of Object.keys(s?.[group] ?? {})) {
+      if (!validateTaskId(key).ok) throw new Error('INVALID_STATE_TASK_ID:' + key);
+    }
+  }
   const tmp = STATE + '.tmp';
   writeFileSync(tmp, JSON.stringify(s, null, 2));
   renameSync(tmp, STATE);
@@ -379,6 +384,7 @@ export function verifyChain(logText) {
     checked.push(ev.task ?? '?');
   }
   const result = { ok: broken.length === 0, checked: checked.length, legacy: legacy.length, broken };
+  if (broken.length > 0) result.reason = 'CHAIN_BROKEN';
   const sealInfo = collectSealInfo(logText);
   if (sealInfo.malformedSeals.length > 0) {
     result.ok = false;
@@ -834,7 +840,13 @@ function dryRun() {
 const [cmd, ...args] = process.argv.slice(2);
 if (cmd === 'make') {
   const o = {};
-  for (const a of args) { const i = a.indexOf('='); o[a.slice(0, i)] = a.slice(i + 1); }
+  const usage = 'usage: make task=T### objective=... files=...';
+  for (const a of args) {
+    const i = a.indexOf('=');
+    if (i <= 0) { console.error(usage + ' (all arguments must be key=value)'); process.exit(2); }
+    o[a.slice(0, i)] = a.slice(i + 1);
+  }
+  if (!validateTaskId(o.task).ok) { console.error(usage + ' (invalid or missing task id)'); process.exit(2); }
   let input = o.input || '';
   if (o.files) {
     const fileLines = [];
@@ -1123,6 +1135,30 @@ if (cmd === 'make') {
   const changed = reapStale(st.tasks);
   saveState(st);
   console.log(JSON.stringify({ changed, tasks: st.tasks }, null, 2));
+} else if (cmd === 'state-validate') {
+  const st = loadState();
+  const errors = [];
+  if (!st.seq || typeof st.seq !== 'object' || Array.isArray(st.seq)) errors.push({ field: 'seq', reason: 'MISSING_OR_INVALID' });
+  if (!st.tasks || typeof st.tasks !== 'object' || Array.isArray(st.tasks)) errors.push({ field: 'tasks', reason: 'MISSING_OR_INVALID' });
+  if (!st.claudeCalls || typeof st.claudeCalls !== 'object' || Array.isArray(st.claudeCalls)) errors.push({ field: 'claudeCalls', reason: 'MISSING_OR_INVALID' });
+  if (!st.claudeCalls?.byDate || typeof st.claudeCalls.byDate !== 'object' || Array.isArray(st.claudeCalls.byDate)) errors.push({ field: 'claudeCalls.byDate', reason: 'MISSING_OR_INVALID' });
+  if (!st.claudeCalls?.byTask || typeof st.claudeCalls.byTask !== 'object' || Array.isArray(st.claudeCalls.byTask)) errors.push({ field: 'claudeCalls.byTask', reason: 'MISSING_OR_INVALID' });
+  for (const [task, seq] of Object.entries(st.seq ?? {})) {
+    if (!validateTaskId(task).ok) errors.push({ task, field: 'seq', reason: 'INVALID_TASK_ID' });
+    if (!Number.isInteger(seq) || seq < 0) errors.push({ task, field: 'seq', reason: 'SEQ_INVALID', value: seq });
+  }
+  for (const [task, t] of Object.entries(st.tasks ?? {})) {
+    if (!validateTaskId(task).ok) errors.push({ task, field: 'task', reason: 'INVALID_TASK_ID' });
+    if (!t.state || !['CREATED', 'RUNNING', 'DONE', 'FAILED', 'DEAD_LETTER'].includes(t.state)) errors.push({ task, field: 'state', reason: 'INVALID_STATE', value: t.state });
+    if (!t.createdAt || !t.updatedAt) errors.push({ task, field: 'timestamps', reason: 'MISSING' });
+    if (typeof t.attempts !== 'number' || t.attempts < 0 || !Number.isInteger(t.attempts)) errors.push({ task, field: 'attempts', reason: 'ATTEMPTS_INVALID', value: t.attempts });
+    if ((t.attempts ?? 0) >= 3 && t.state !== 'DEAD_LETTER') errors.push({ task, field: 'state', reason: 'ATTEMPTS_EXCEEDED', detail: 'attempts >= 3 but state not DEAD_LETTER' });
+  }
+  if (errors.length > 0) {
+    console.log(JSON.stringify({ ok: false, reason: 'SCHEMA_INVALID', errors }, null, 2));
+    process.exit(2);
+  }
+  console.log(JSON.stringify({ ok: true }, null, 2));
 } else if (cmd === 'dispute') {
   const task = args[0];
   const action = args[1];
@@ -1173,6 +1209,35 @@ if (cmd === 'make') {
     throw err;
   }
   console.log('logged');
-} else {
+} else if (cmd === 'log-event') {
+  const opts = {};
+  for (const a of args) {
+    const eq = a.indexOf('=');
+    if (eq > 0) opts[a.slice(2, eq)] = a.slice(eq + 1);
+  }
+  const entry = {
+    task: opts.task,
+    seq: opts.seq ? Number(opts.seq) : null,
+    hash: opts.hash,
+    relay: opts.relay,
+    verdict: opts.verdict,
+    stateFrom: opts['state-from'],
+    stateTo: opts['state-to'],
+    claude_calls: opts['claude-calls'] ? Number(opts['claude-calls']) : 0,
+  };
+  try {
+    const res = logEvent(entry);
+    console.log(JSON.stringify({ ok: true, ...res }, null, 2));
+  } catch (err) {
+    if (err?.message === 'HUMAN_REQUIRED') {
+      console.log(JSON.stringify({ ok: false, reason: 'HUMAN_REQUIRED' }, null, 2));
+      process.exit(0);
+    }
+    throw err;
+  }
+} else if (!cmd) {
   dryRun();
+} else {
+  console.error('UNKNOWN_COMMAND');
+  process.exit(2);
 }

@@ -3,6 +3,7 @@
 *.log
 .scratch/
 node_modules/
+wf/.run/
 
 # Payload logs - do not commit (may contain sensitive patch content)
 wf/logs/*

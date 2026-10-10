@@ -11,7 +11,7 @@ const WF = dirname(fileURLToPath(import.meta.url));
 const PIPE = join(WF, 'pipeline.mjs');
 function run(root, argv) { return harnessRun(root, argv); }
 function runMake(root, filesArg) {
-  return run(root, ['make', 'task=F2', 'objective=neg', `files=${filesArg}`]);
+  return run(root, ['make', 'task=T2', 'objective=neg', `files=${filesArg}`]);
 }
 function planRun(root, files) {
   const p = join(root, 'plan-f2.json');

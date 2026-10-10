@@ -23,6 +23,14 @@
       "darwin": 1
     }
   },
+  "test-cli-surface.mjs": {
+    "minPassed": 24,
+    "maxSkipped": {
+      "win32": 0,
+      "linux": 0,
+      "darwin": 0
+    }
+  },
   "test-dispute.mjs": {
     "minPassed": 9,
     "maxSkipped": {
@@ -40,7 +48,7 @@
     }
   },
   "test-f3-state-validation.mjs": {
-    "minPassed": 4,
+    "minPassed": 18,
     "maxSkipped": {
       "win32": 0,
       "linux": 0,

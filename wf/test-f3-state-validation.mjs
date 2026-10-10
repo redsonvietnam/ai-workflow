@@ -76,32 +76,32 @@ checkOutcome(s4b, 'SUCCESS', 'S04-failed-attempts-one-ok');
 
 // ===== S06: claudeCalls per-task limit (<=1/task) =====
 // Use unique task name for isolation
-writeState(ROOT, { seq: {}, tasks: { 'S06-T1': { state: 'CREATED', attempts: 0, timeoutMs: 8*3600000, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() } }, claudeCalls: { byDate: {}, byTask: {} } });
-const s6a = run(ROOT, ['log-event', '--task=S06-T1', '--seq=1', '--hash=abc', '--relay=test', '--verdict=PASS', '--state-from=CREATED', '--state-to=RUNNING', '--claude-calls=1']);
+writeState(ROOT, { seq: {}, tasks: { 'T606': { state: 'CREATED', attempts: 0, timeoutMs: 8*3600000, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() } }, claudeCalls: { byDate: {}, byTask: {} } });
+const s6a = run(ROOT, ['log-event', '--task=T606', '--seq=1', '--hash=abc', '--relay=test', '--verdict=PASS', '--state-from=CREATED', '--state-to=RUNNING', '--claude-calls=1']);
 checkOutcome(s6a, 'SUCCESS', 'S06-task-limit-ok-1');
 
 // add 1 more -> exceed (use non-terminal transition to avoid finalHash requirement)
-const s6b = run(ROOT, ['log-event', '--task=S06-T1', '--seq=2', '--hash=abc', '--relay=test', '--verdict=PASS', '--state-from=RUNNING', '--state-to=RUNNING', '--claude-calls=1']);
+const s6b = run(ROOT, ['log-event', '--task=T606', '--seq=2', '--hash=abc', '--relay=test', '--verdict=PASS', '--state-from=RUNNING', '--state-to=RUNNING', '--claude-calls=1']);
 checkOutcome(s6b, 'HUMAN_REQUIRED', 'S06-task-limit-exceed');
 
 // ===== S07: claudeCalls per-day limit (<=2/day) =====
-writeState(ROOT, { seq: {}, tasks: { 'S07-T1': { state: 'CREATED', attempts: 0, timeoutMs: 8*3600000, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() } }, claudeCalls: { byDate: { '2026-10-09': 2 }, byTask: {} } });
-const s7a = run(ROOT, ['escalation', 'S07-T1']);
+writeState(ROOT, { seq: {}, tasks: { 'T707': { state: 'CREATED', attempts: 0, timeoutMs: 8*3600000, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() } }, claudeCalls: { byDate: { [new Date().toISOString().slice(0, 10)]: 2 }, byTask: {} } });
+const s7a = run(ROOT, ['escalation', 'T707']);
 checkOutcome(s7a, 'HUMAN_REQUIRED', 'S07-day-limit-exceed');
 
 // ===== S09: timeout auto-transition (reapStale) =====
 const oldDate = new Date(Date.now() - 9*3600000).toISOString();
-writeState(ROOT, { seq: {}, tasks: { 'S09-T1': { state: 'RUNNING', attempts: 0, timeoutMs: 8*3600000, createdAt: oldDate, updatedAt: oldDate } }, claudeCalls: { byDate: {}, byTask: {} } });
+writeState(ROOT, { seq: {}, tasks: { 'T909': { state: 'RUNNING', attempts: 0, timeoutMs: 8*3600000, createdAt: oldDate, updatedAt: oldDate } }, claudeCalls: { byDate: {}, byTask: {} } });
 const s9 = run(ROOT, ['reap']);
 const o9 = out(s9);
-if (o9?.changed?.['S09-T1']?.state === 'FAILED') { check('S09-reap-running-expired', true); }
+if (o9?.changed?.['T909']?.state === 'FAILED') { check('S09-reap-running-expired', true); }
 else { check('S09-reap-running-expired', false, `changed=${JSON.stringify(o9?.changed)}`); }
 
 // attempts >= MAX_ATTEMPTS -> DEAD_LETTER
-writeState(ROOT, { seq: {}, tasks: { 'S10-T1': { state: 'RUNNING', attempts: 3, timeoutMs: 8*3600000, createdAt: oldDate, updatedAt: oldDate } }, claudeCalls: { byDate: {}, byTask: {} } });
+writeState(ROOT, { seq: {}, tasks: { 'T1010': { state: 'RUNNING', attempts: 3, timeoutMs: 8*3600000, createdAt: oldDate, updatedAt: oldDate } }, claudeCalls: { byDate: {}, byTask: {} } });
 const s9b = run(ROOT, ['reap']);
 const o9b = out(s9b);
-if (o9b?.changed?.['S10-T1']?.state === 'DEAD_LETTER') { check('S10-reap-max-attempts-dead-letter', true); }
+if (o9b?.changed?.['T1010']?.state === 'DEAD_LETTER') { check('S10-reap-max-attempts-dead-letter', true); }
 else { check('S10-reap-max-attempts-dead-letter', false, `changed=${JSON.stringify(o9b?.changed)}`); }
 
 // ===== S12: lease/fencing valid (prereg freeze check) =====
@@ -110,24 +110,24 @@ writeFileSync(join(ROOT, 'test.txt'), 'content');
 const p12 = run(ROOT, ['prereg', 'freeze', 'test.txt']);
 checkOutcome(p12, 'SUCCESS', 'S12-prereg-freeze-ok');
 const p12b = run(ROOT, ['prereg', 'check']);
-checkOutcome(p12b, 'SUCCESS', 'S12-prereg-check-ok');
+check('S12-prereg-check-ok', p12b.status === 0 && /prereg: PASS/.test(p12b.stdout ?? ''), String(p12b.stdout ?? '').trim());
 writeFileSync(join(ROOT, 'test.txt'), 'modified');
 const p12c = run(ROOT, ['prereg', 'check']);
-checkOutcome(p12c, 'PREREG_MISMATCH', 'S12-prereg-mismatch-detect');
+check('S12-prereg-mismatch-detect', p12c.status === 5 && /test\.txt/.test(p12c.stdout ?? '') && /HASH_MISMATCH/.test(p12c.stdout ?? ''), 'exit=' + p12c.status + '; ' + String(p12c.stdout ?? '').trim());
 
 // ===== S13: idempotency key unique (dedupe) =====
-writeState(ROOT, { seq: {}, tasks: { 'S13-T1': { state: 'CREATED', attempts: 0, timeoutMs: 8*3600000, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() } }, claudeCalls: { byDate: {}, byTask: {} } });
-const s13 = run(ROOT, ['log-event', '--task=S13-T1', '--seq=1', '--hash=abc', '--relay=test', '--verdict=PASS', '--state-from=CREATED', '--state-to=RUNNING']);
-const s13b = run(ROOT, ['log-event', '--task=S13-T1', '--seq=1', '--hash=abc', '--relay=test', '--verdict=PASS', '--state-from=CREATED', '--state-to=RUNNING']);
+writeState(ROOT, { seq: {}, tasks: { 'T1313': { state: 'CREATED', attempts: 0, timeoutMs: 8*3600000, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() } }, claudeCalls: { byDate: {}, byTask: {} } });
+const s13 = run(ROOT, ['log-event', '--task=T1313', '--seq=1', '--hash=abc', '--relay=test', '--verdict=PASS', '--state-from=CREATED', '--state-to=RUNNING']);
+const s13b = run(ROOT, ['log-event', '--task=T1313', '--seq=1', '--hash=abc', '--relay=test', '--verdict=PASS', '--state-from=CREATED', '--state-to=RUNNING']);
 const o13 = out(s13), o13b = out(s13b);
 if (o13?.logged === true && o13b?.logged === false) { check('S13-dedupe-second-false', true); }
 else { check('S13-dedupe-second-false', false, `first=${JSON.stringify(o13)} second=${JSON.stringify(o13b)}`); }
 
 // ===== S14: hash-chain integrity =====
 // First create some log entries to have a valid chain
-writeState(ROOT, { seq: {}, tasks: { 'S14-T1': { state: 'CREATED', attempts: 0, timeoutMs: 8*3600000, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() } }, claudeCalls: { byDate: {}, byTask: {} } });
-run(ROOT, ['log-event', '--task=S14-T1', '--seq=1', '--hash=abc', '--relay=test', '--verdict=PASS', '--state-from=CREATED', '--state-to=RUNNING']);
-run(ROOT, ['log-event', '--task=S14-T1', '--seq=2', '--hash=def', '--relay=test', '--verdict=PASS', '--state-from=RUNNING', '--state-to=RUNNING']);
+writeState(ROOT, { seq: {}, tasks: { 'T1414': { state: 'CREATED', attempts: 0, timeoutMs: 8*3600000, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() } }, claudeCalls: { byDate: {}, byTask: {} } });
+run(ROOT, ['log-event', '--task=T1414', '--seq=1', '--hash=abc', '--relay=test', '--verdict=PASS', '--state-from=CREATED', '--state-to=RUNNING']);
+run(ROOT, ['log-event', '--task=T1414', '--seq=2', '--hash=def', '--relay=test', '--verdict=PASS', '--state-from=RUNNING', '--state-to=RUNNING']);
 const s14 = run(ROOT, ['verifychain']);
 checkOutcome(s14, 'SUCCESS', 'S14-verifychain-ok');
 
