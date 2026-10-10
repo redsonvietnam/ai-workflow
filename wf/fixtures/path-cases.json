@@ -1,0 +1,429 @@
+[
+  {
+    "id": "P01-parent-posix",
+    "input": "../escape-t160.md",
+    "expect": "TRAVERSAL",
+    "platforms": "all",
+    "note": "Parent traversal"
+  },
+  {
+    "id": "P02-parent-win",
+    "input": "..\\escape-t160.md",
+    "expect": "TRAVERSAL",
+    "platforms": "all",
+    "note": "Windows separator parent traversal"
+  },
+  {
+    "id": "P03-abs-outside",
+    "input": "C:/escape-t160-abs.md",
+    "expect": "TRAVERSAL",
+    "platforms": "all",
+    "note": "Windows drive absolute outside root"
+  },
+  {
+    "id": "P05-git-upper",
+    "input": ".GIT/config",
+    "expect": "BLOCKED_PATH",
+    "platforms": "all",
+    "note": "Case-insensitive .git segment"
+  },
+  {
+    "id": "P06-git-backslash",
+    "input": ".git\\config",
+    "expect": "BLOCKED_PATH",
+    "platforms": "all",
+    "note": "Backslash separators normalized on all OS"
+  },
+  {
+    "id": "P07-env-local",
+    "input": ".env.local",
+    "expect": "BLOCKED_PATH",
+    "platforms": "all",
+    "note": "Sensitive env file"
+  },
+  {
+    "id": "P07b-env-local-upper",
+    "input": ".ENV.LOCAL",
+    "expect": "BLOCKED_PATH",
+    "platforms": "all",
+    "note": "Case-insensitive env file"
+  },
+  {
+    "id": "P08-env-production",
+    "input": ".env.production",
+    "expect": "BLOCKED_PATH",
+    "platforms": "all",
+    "note": "Sensitive env file"
+  },
+  {
+    "id": "P09-env-nested",
+    "input": "config/.env",
+    "expect": "BLOCKED_PATH",
+    "platforms": "all",
+    "note": "Nested .env"
+  },
+  {
+    "id": "P10-env-nested-variant",
+    "input": "config/.env.local",
+    "expect": "BLOCKED_PATH",
+    "platforms": "all",
+    "note": "Nested .env variant"
+  },
+  {
+    "id": "P21-envrc",
+    "input": ".envrc",
+    "expect": "BLOCKED_PATH",
+    "platforms": "all",
+    "note": "envrc segment"
+  },
+  {
+    "id": "P22-dot-segment-ok",
+    "input": "wf/./safe.md",
+    "expect": "OK",
+    "platforms": "all",
+    "note": "Dot segment canonicalization"
+  },
+  {
+    "id": "P23-no-false-dots",
+    "input": "wf/..notes",
+    "expect": "OK",
+    "platforms": "all",
+    "note": "..notes is a normal filename"
+  },
+  {
+    "id": "P24-env-trailing-space",
+    "input": ".env ",
+    "expect": "BLOCKED_PATH",
+    "platforms": "all",
+    "note": "Windows trailing-space semantics on every OS"
+  },
+  {
+    "id": "P25-git-segment-trailing-space",
+    "input": ".git /config",
+    "expect": "BLOCKED_PATH",
+    "platforms": "all",
+    "note": "Trim trailing spaces before blocklist"
+  },
+  {
+    "id": "P26-env-trailing-dot",
+    "input": ".env.",
+    "expect": "BLOCKED_PATH",
+    "platforms": "all",
+    "note": "Trim trailing dot before blocklist"
+  },
+  {
+    "id": "P11-traversal-combined",
+    "input": "x/../.git/config",
+    "expect": "BLOCKED_PATH",
+    "platforms": "all",
+    "note": "Blocklist after normalization"
+  },
+  {
+    "id": "P12-traversal-mixed-sep",
+    "input": "x\\..\\.git\\config",
+    "expect": "BLOCKED_PATH",
+    "platforms": "all",
+    "note": "Mixed separators and blocklist"
+  },
+  {
+    "id": "P13-prefix-sibling",
+    "input": "../t160-evil/file.md",
+    "expect": "TRAVERSAL",
+    "platforms": "all",
+    "note": "Sibling prefix must not pass containment"
+  },
+  {
+    "id": "P16-nul-byte",
+    "input": "wf/safe\u0000../x.md",
+    "expect": "ENTRY_INVALID",
+    "platforms": "all",
+    "note": "NUL byte"
+  },
+  {
+    "id": "P17-lower-drive",
+    "input": "@ROOT_LOWER@/wf/safe.md",
+    "expect": "OK",
+    "platforms": "win32",
+    "note": "Lowercase drive absolute inside workspace"
+  },
+  {
+    "id": "P17-upper-drive",
+    "input": "@ROOT_UPPER@/wf/safe.md",
+    "expect": "OK",
+    "platforms": "win32",
+    "note": "Uppercase drive absolute inside workspace"
+  },
+  {
+    "id": "P18-abs-inside",
+    "input": "wf/safe.md",
+    "expect": "OK",
+    "platforms": "all",
+    "note": "Relative in-workspace path; absolute variant checked separately by legacy suite"
+  },
+  {
+    "id": "P19-no-false-block",
+    "input": "docs/my-env-notes.md",
+    "expect": "OK",
+    "platforms": "all",
+    "note": "Do not block env substring"
+  },
+  {
+    "id": "P19b-environment-md",
+    "input": "docs/environment.md",
+    "expect": "OK",
+    "platforms": "all",
+    "note": "Do not block environment filename"
+  },
+  {
+    "id": "P19c-dot-environment",
+    "input": "docs/.environment",
+    "expect": "OK",
+    "platforms": "all",
+    "note": "Do not block .environment"
+  },
+  {
+    "id": "A-P01-apply-parent",
+    "input": "../escape-plan.txt",
+    "expect": "TRAVERSAL",
+    "platforms": "all",
+    "note": "Apply parent traversal"
+  },
+  {
+    "id": "A-P02-apply-nested-escape",
+    "input": "wf/../../escape-plan2.txt",
+    "expect": "TRAVERSAL",
+    "platforms": "all",
+    "note": "Apply nested traversal"
+  },
+  {
+    "id": "A-P07-apply-env-local",
+    "input": "wf/.env.local",
+    "expect": "BLOCKED_PATH",
+    "platforms": "all",
+    "note": "Apply env variant"
+  },
+  {
+    "id": "A-P09-apply-env",
+    "input": "wf/.env",
+    "expect": "BLOCKED_PATH",
+    "platforms": "all",
+    "note": "Apply .env"
+  },
+  {
+    "id": "A-P09b-apply-env-backslash",
+    "input": "wf\\.env",
+    "expect": "BLOCKED_PATH",
+    "platforms": "all",
+    "note": "Apply Windows separator normalization"
+  },
+  {
+    "id": "A-P09c-apply-env-dot",
+    "input": "wf/./.env",
+    "expect": "BLOCKED_PATH",
+    "platforms": "all",
+    "note": "Apply dot segment before blocklist"
+  },
+  {
+    "id": "A-P09d-apply-envrc",
+    "input": "wf/.envrc",
+    "expect": "BLOCKED_PATH",
+    "platforms": "all",
+    "note": "Apply envrc"
+  },
+  {
+    "id": "A-P24-apply-env-trailing-space",
+    "input": "wf/.env ",
+    "expect": "BLOCKED_PATH",
+    "platforms": "all",
+    "note": "Apply trailing space blocklist"
+  },
+  {
+    "id": "A-P25-apply-git-trailing-space",
+    "input": "wf/.git ",
+    "expect": "BLOCKED_PATH",
+    "platforms": "all",
+    "note": "Apply trailing dot/space blocklist"
+  },
+  {
+    "id": "A-P26-apply-xenv-trailing-space-ok",
+    "input": "wf/x.env ",
+    "expect": "OK",
+    "platforms": "all",
+    "note": "x.env is not blocked"
+  },
+  {
+    "id": "A-P19-root-not-allowed",
+    "input": "t160-root.txt",
+    "expect": "OK",
+    "platforms": "all",
+    "note": "Post-validation allowlist restriction"
+  },
+  {
+    "id": "A-P18-abs-inside-apply",
+    "input": "wf/abs-target.txt",
+    "expect": "OK",
+    "platforms": "all",
+    "note": "Apply in-workspace path"
+  },
+  {
+    "id": "P14-symlink-out",
+    "input": "wf/jlink/evil.txt",
+    "expect": "TRAVERSAL",
+    "platforms": "all",
+    "note": "Directory symlink points outside workspace"
+  },
+  {
+    "id": "P15-symlink-to-git",
+    "input": "wf/jgit/hook-evil.txt",
+    "expect": "BLOCKED_PATH",
+    "platforms": "all",
+    "note": "Symlink resolves into blocked .git directory"
+  },
+  {
+    "id": "P15b-double-junction",
+    "input": "wf/j2/deep.txt",
+    "expect": "TRAVERSAL",
+    "platforms": "all",
+    "note": "Nested directory symlinks resolve outside workspace"
+  },
+  {
+    "id": "P14b-file-symlink",
+    "input": "wf/filelink.txt",
+    "expect": "TRAVERSAL",
+    "platforms": "all",
+    "note": "File symlink points outside root; target must remain unchanged"
+  },
+  {
+    "id": "PD-canonical-landing",
+    "input": "wf/sub/../pd-target.txt",
+    "expect": "OK",
+    "platforms": "all",
+    "note": "Canonical path landing"
+  },
+  {
+    "id": "PD-escape-rejected",
+    "input": "wf/sub/../../pd-escape.txt",
+    "expect": "OK",
+    "platforms": "all",
+    "note": "Canonical traversal rejected"
+  },
+  {
+    "id": "valid-weird-task-id",
+    "input": "wf/T-not-a-task-id.txt",
+    "expect": "OK",
+    "platforms": "all",
+    "note": "T-like path component is not task metadata"
+  },
+  {
+    "id": "NFC-valid",
+    "input": "wf/café.txt",
+    "expect": "OK",
+    "platforms": "all",
+    "note": "NFC valid filename"
+  },
+  {
+    "id": "NFD-valid",
+    "input": "wf/café.txt",
+    "expect": "OK",
+    "platforms": "all",
+    "note": "NFD valid filename"
+  },
+  {
+    "id": "wf-dot-env",
+    "input": "wf/./.env",
+    "expect": "BLOCKED_PATH",
+    "platforms": "all",
+    "note": "Blocklist after dot normalization"
+  },
+  {
+    "id": "wf-backslash-env",
+    "input": "wf\\.env",
+    "expect": "BLOCKED_PATH",
+    "platforms": "all",
+    "note": "Windows separators on POSIX"
+  },
+  {
+    "id": "wf-env-trailing-dot",
+    "input": "wf/.env.",
+    "expect": "BLOCKED_PATH",
+    "platforms": "all",
+    "note": "Trailing dot normalized"
+  },
+  {
+    "id": "device-CON",
+    "input": "wf/CON.txt",
+    "expect": "ENTRY_INVALID",
+    "platforms": "all",
+    "note": "Windows reserved device name"
+  },
+  {
+    "id": "ads-stream",
+    "input": "wf/a.txt:stream",
+    "expect": "ENTRY_INVALID",
+    "platforms": "all",
+    "note": "Alternate data stream"
+  },
+  {
+    "id": "unc-outside",
+    "input": "//server/share/x",
+    "expect": "TRAVERSAL",
+    "platforms": "all",
+    "note": "UNC absolute path outside workspace"
+  },
+  {
+    "id": "drive-outside",
+    "input": "C:/x",
+    "expect": "TRAVERSAL",
+    "platforms": "all",
+    "note": "Drive absolute path outside workspace"
+  },
+  {
+    "id": "gitignore-allowed",
+    "input": "wf/.gitignore",
+    "expect": "OK",
+    "platforms": "all",
+    "note": "Do not block .gitignore"
+  },
+  {
+    "id": "github-allowed",
+    "input": "wf/.github",
+    "expect": "OK",
+    "platforms": "all",
+    "note": "Do not block .github"
+  },
+  {
+    "id": "x-env-allowed",
+    "input": "wf/x.env",
+    "expect": "OK",
+    "platforms": "all",
+    "note": "Do not block x.env"
+  },
+  {
+    "id": "long-path",
+    "input": "wf/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "expect": "ENTRY_INVALID",
+    "platforms": "all",
+    "note": "Raw path exceeds 1024 characters"
+  },
+  {
+    "id": "non-string",
+    "input": "null",
+    "expect": "ENTRY_INVALID",
+    "platforms": "all",
+    "note": "Non-string path is invalid"
+  },
+  {
+    "id": "empty",
+    "input": "",
+    "expect": "ENTRY_INVALID",
+    "platforms": "all",
+    "note": "Empty path is invalid"
+  },
+  {
+    "id": "colon-device",
+    "input": "wf/COM1.log",
+    "expect": "ENTRY_INVALID",
+    "platforms": "all",
+    "note": "Reserved device name with extension"
+  }
+]
