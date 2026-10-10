@@ -29,15 +29,34 @@ const SECRET_PATTERNS = [
   /\b(password|passwd|secret|token|api[_-]?key)\s*[=:]\s*['"]?[^\s'"]{8,}['"]?/gi,
 ];
 
-export function redact(text) {
+// Recursively redact strings in an object/array - single source of truth for redaction
+export function redactString(text) {
   if (!text) return text;
   let out = String(text);
   for (const re of SECRET_PATTERNS) out = out.replace(re, '[REDACTED]');
   return out;
 }
 
+export function redactObject(obj) {
+  if (obj === null || obj === undefined) return obj;
+  if (typeof obj === 'string') return redactString(obj);
+  if (Array.isArray(obj)) {
+    const out = obj.slice(0, 200).map(redactObject);
+    if (obj.length > 200) out.push({ truncated: true });
+    return out;
+  }
+  if (typeof obj === 'object') {
+    const out = {};
+    for (const [k, v] of Object.entries(obj)) {
+      out[k] = redactObject(v);
+    }
+    return out;
+  }
+  return obj;
+}
+
 export function logPayload(taskId, workspaceId, patch, metadata = {}) {
-  const redactedPatch = patch ? redact(patch) : patch;
+  const redactedPatch = patch ? redactString(patch) : patch;
   const entry = {
     ts: new Date().toISOString(),
     taskId,
@@ -71,4 +90,4 @@ function extractPatchHeaders(patch) {
 }
 
 // Export default để import từ nơi khác
-export default { logPayload, redact };
+export default { logPayload, redact: redactString, redactObject };

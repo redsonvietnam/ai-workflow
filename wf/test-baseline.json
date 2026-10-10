@@ -47,6 +47,14 @@
       "darwin": 0
     }
   },
+  "test-f2-jsonl.mjs": {
+    "minPassed": 58,
+    "maxSkipped": {
+      "win32": 0,
+      "linux": 0,
+      "darwin": 0
+    }
+  },
   "test-f3-state-validation.mjs": {
     "minPassed": 18,
     "maxSkipped": {
@@ -57,6 +65,14 @@
   },
   "test-log-concurrency.mjs": {
     "minPassed": 4,
+    "maxSkipped": {
+      "win32": 0,
+      "linux": 0,
+      "darwin": 0
+    }
+  },
+  "test-log-debug.mjs": {
+    "minPassed": 0,
     "maxSkipped": {
       "win32": 0,
       "linux": 0,

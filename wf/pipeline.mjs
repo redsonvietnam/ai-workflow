@@ -2,8 +2,8 @@
 // WF:v1 pipeline — HASH/SEQ do script tính, KHÔNG nhờ model.
 import { createHash } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
-import { readFileSync, writeFileSync, mkdirSync, existsSync, openSync, closeSync, unlinkSync, renameSync, realpathSync, writeSync } from 'node:fs';
-import { logPayload } from './payload-log.mjs';
+import { readFileSync, writeFileSync, mkdirSync, existsSync, openSync, closeSync, unlinkSync, renameSync, realpathSync, writeSync, appendFileSync } from 'node:fs';
+import { logPayload, redactString, redactObject } from './payload-log.mjs';
 import { dirname, join, resolve, sep, isAbsolute, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -86,18 +86,9 @@ function errorClassFor(reason) {
 
 // F2: log to JSONL file (wf/logs/code-local-payloads.jsonl)
 function logToJsonl(entry) {
-  try {
-    mkdirSync(dirname(join(WF, 'logs', 'code-local-payloads.jsonl')), { recursive: true });
-    appendFileSync(join(WF, 'logs', 'code-local-payloads.jsonl'), JSON.stringify(entry) + '\n');
-  } catch { /* best-effort, never throw */ }
-}
-
-// F2: redaction function (shared)
-function redactForLog(text) {
-  if (!text) return text;
-  let out = String(text);
-  for (const re of SECRET_PATTERNS) out = out.replace(re, '[REDACTED]');
-  return out;
+  const logPath = join(WF, 'logs', 'code-local-payloads.jsonl');
+  mkdirSync(dirname(logPath), { recursive: true });
+  appendFileSync(logPath, JSON.stringify(entry) + '\n');
 }
 
 // F1b: validate task ID format T\d+(-[A-Za-z0-9]+)*
@@ -127,29 +118,35 @@ function validateBundleDir(task) {
 }
 
 // F2: single logOnce function - writes one JSONL line with all required fields
-function logOnce(result, taskId, rawPaths, canonicalPaths) {
+function logOnce(result, trace) {
   const entry = {
+    v: 1,
     ts: new Date().toISOString(),
     pid: process.pid,
-    taskId: taskId ?? null,
-    entryCount: Array.isArray(rawPaths) ? rawPaths.length : 0,
-    rawPaths: rawPaths ?? [],
-    canonicalPaths: canonicalPaths ?? [],
+    cmd: 'apply',
+    taskId: trace?.taskId ?? null,
+    entryCount: Array.isArray(trace?.rawPaths) ? trace.rawPaths.length : 0,
+    rawPaths: trace?.rawPaths ?? [],
+    canonicalPaths: trace?.canonicalPaths ?? [],
     outcome: result.ok ? 'SUCCESS' : 'ERROR',
     reason: result.ok ? 'SUCCESS' : (result.reason ?? 'UNKNOWN'),
     errorClass: result.ok ? 'OK' : errorClassFor(result.reason),
+    platform: process.platform,
+    durationMs: trace?.t0 ? Date.now() - trace.t0 : 0,
   };
-  // For blocked branches: include sha256 + length of content instead of preview
-  if (!result.ok && result.written) {
-    entry.written = result.written;
-  } else if (!result.ok && result.extra && result.extra.content) {
-    const content = String(result.extra.content);
-    entry.contentSha256 = createHash('sha256').update(content, 'utf8').digest('hex');
-    entry.contentLength = Buffer.byteLength(content, 'utf8');
+  // For success: include written paths
+  if (result.ok && result.written) {
+    entry.written = result.written.slice(0, 200);
+    if (result.written.length > 200) entry.truncated = true;
   }
-  // Redact before any truncation
-  const redactedEntry = JSON.parse(redactForLog(JSON.stringify(entry)));
-  logToJsonl(redactedEntry);
+  // For errors with content: include sha256 + length only (no content/preview)
+  if (!result.ok && result.extra && result.extra.content) {
+    const content = String(result.extra.content);
+    entry.content = [{ sha256: createHash('sha256').update(content, 'utf8').digest('hex'), length: Buffer.byteLength(content, 'utf8') }];
+  }
+  // Redact each string field before truncation
+  const redactedEntry = redactObject(entry);
+  try { logToJsonl(redactedEntry); } catch (e) { process.stderr.write('LOG_FAILED ' + e.message + '\n'); }
 }
 
 // F2: ApplyReject error class - replaces bail()
@@ -162,38 +159,61 @@ class ApplyReject extends Error {
   }
 }
 
+// Convert any error to a normalized result object
+function toResult(err) {
+  if (err instanceof ApplyReject) {
+    return { ok: false, reason: err.reason, extra: err.extra };
+  }
+  // FS errors with codes like ENOENT, EPERM, EACCES, EBUSY -> APPLY_ERROR
+  if (err && typeof err === 'object' && typeof err.code === 'string' && /^E[A-Z]+$/.test(err.code)) {
+    return { ok: false, reason: 'APPLY_ERROR', extra: { message: String(err.message || err) } };
+  }
+  // Any other error -> INTERNAL
+  return { ok: false, reason: 'INTERNAL', extra: { message: String(err && err.message || err) } };
+}
+
+// Derive process exit code from result
+function exitCodeFor(result) {
+  if (result.ok) return 0;
+  const ec = errorClassFor(result.reason);
+  if (ec === 'CONCURRENCY') return 8;
+  if (ec === 'INTERNAL') return 1;
+  return 2; // VALIDATE_REJECT, IO_ERROR, OK
+}
+
 // F2: core apply logic - returns result object, never calls process.exit
-async function runApply(planPath) {
+// Accepts trace object to populate rawPaths/canonicalPaths incrementally
+async function runApply(planPath, trace) {
   const planText = readFileSync(planPath, 'utf8');
   let plan;
   try { plan = JSON.parse(planText); } catch { throw new ApplyReject('PLAN_MALFORMED'); }
   const entries = Array.isArray(plan) ? plan : plan.files;
   if (!Array.isArray(entries) || entries.length === 0) throw new ApplyReject('PLAN_EMPTY');
-  const allowRel = (rel) => rel.split(sep).join('/').startsWith('wf/') || /^(CONTEXT|DECISIONS|LOG)\.md$/.test(rel) || /^\.git(ignore|attributes)$/.test(rel);
+  const allowRel = (rel) => rel.split(sep).join('/').startsWith('wf/') || /^(CONTEXT|DECISIONS|LOG)\.md$/.test(rel) || /^\.git(ignore)$/.test(rel);
   const resolved = [];
-  const rawPaths = [];
-  const canonicalPaths = [];
+  // Populate trace with raw paths as we read the plan
+  if (trace) { trace.rawPaths = []; trace.canonicalPaths = []; }
   for (const e of entries) {
     if (!e || typeof e.path !== 'string' || e.path.length === 0) throw new ApplyReject('ENTRY_INVALID', { entry: e });
     if (e.before_sha256 !== null && !(typeof e.before_sha256 === 'string' && /^[0-9a-f]{64}$/.test(e.before_sha256))) throw new ApplyReject('ENTRY_INVALID', { entry: e });
-    const v = validateWorkspacePath(e.path);
-    if (!v.ok) throw new ApplyReject(v.reason, { path: e.path });
-    const { abs, rel } = v;
-    if (!allowRel(rel)) throw new ApplyReject('NOT_ALLOWED', { rel });
-    rawPaths.push(e.path);
-    canonicalPaths.push(v.abs);
+    // Read content FIRST so it's available for logging even on validation errors
     let content = null;
     if (typeof e.content === 'string') content = e.content;
     else if (typeof e.contentPath === 'string') {
       try { content = readFileSync(resolve(ROOT, e.contentPath), 'utf8'); } catch { throw new ApplyReject('CONTENT_UNREADABLE', { path: e.contentPath }); }
     } else throw new ApplyReject('ENTRY_NO_CONTENT', { entry: e });
+    // Then validate path
+    const v = validateWorkspacePath(e.path);
+    if (!v.ok) throw new ApplyReject(v.reason, { path: e.path, content });
+    const { abs, rel } = v;
+    if (!allowRel(rel)) throw new ApplyReject('NOT_ALLOWED', { rel, content });
+    if (trace) { trace.rawPaths.push(e.path); trace.canonicalPaths.push(v.abs); }
     resolved.push({ abs: v.abs, rel, before: e.before_sha256, content });
   }
   const LOCK = join(WF, '.apply.lock');
   let fd = null;
   try { fd = openSync(LOCK, 'wx'); } catch { throw new ApplyReject('LOCKED', { lock: LOCK }); }
   const temps = [];
-  let result, exitCode = 0;
   try {
     const stale = [];
     for (const e of resolved) {
@@ -201,6 +221,10 @@ async function runApply(planPath) {
       if (cur !== e.before) stale.push({ path: e.rel, expected: e.before, actual: cur });
     }
     if (stale.length) { throw new ApplyReject('STALE_REJECT', { stale }); }
+    // Test-only fault injection: WF_TEST_FAULT=after-lock (only when WF_TEST_MODE=1)
+    if (process.env.WF_TEST_MODE === '1' && process.env.WF_TEST_FAULT === 'after-lock') {
+      throw new Error('TEST_FAULT_AFTER_LOCK');
+    }
     const written = [];
     for (const e of resolved) {
       const tmp = e.abs + '.tmp-apply-' + process.pid;
@@ -210,7 +234,7 @@ async function runApply(planPath) {
     }
     return { ok: true, written, writtenRel: written };
   } finally {
-    // Release lock before logging
+    // Release lock before logging (in finally so it runs even if error thrown)
     try { if (fd !== null) closeSync(fd); } catch { /* ignore */ }
     try { if (existsSync(LOCK)) unlinkSync(LOCK); } catch { /* ignore */ }
     // Cleanup temps
@@ -957,22 +981,20 @@ if (cmd === 'make') {
   }
 } else if (cmd === 'apply') {
   const planPath = args[0];
-  if (!planPath) { exitWith('NO_PLAN'); }
+  const trace = { taskId: null, rawPaths: [], canonicalPaths: [], t0: Date.now() };
+  let result;
   try {
-    const result = await runApply(planPath);
-    if (result.ok) {
-      successOutcome(result.written);
-    } else {
-      exitWith(result.reason, result);
-    }
+    if (!planPath) throw new ApplyReject('NO_PLAN');
+    result = await runApply(planPath, trace);
   } catch (err) {
-    if (err instanceof ApplyReject) {
-      exitWith(err.reason, err.extra);
-    } else {
-      console.error('APPLY_ERROR:', err);
-      exitWith('APPLY_ERROR', { message: String(err && err.message || err) });
-    }
+    result = toResult(err);
+  } finally {
+    try { logOnce(result, trace); } catch (e) { process.stderr.write('LOG_FAILED ' + e.message + '\n'); }
   }
+  // Summary line for backward compatibility / human readers
+  process.stderr.write(JSON.stringify({ outcome: result.ok ? 'SUCCESS' : 'ERROR', reason: result.ok ? 'SUCCESS' : (result.reason ?? 'UNKNOWN') }) + '\n');
+  process.stdout.write(JSON.stringify(result, null, 2) + '\n');
+  process.exitCode = exitCodeFor(result);
 } else if (cmd === 'plan-extract') {
   const file = args[0];
   if (!file || !existsSync(file)) { console.log(JSON.stringify({ ok: false, reason: 'PLAN_NOT_FOUND' }, null, 2)); process.exit(2); }
