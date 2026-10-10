@@ -95,6 +95,29 @@ function redactForLog(text) {
   return out;
 }
 
+// F1b: validate task ID format T\d+(-[A-Za-z0-9]+)*
+function validateTaskId(task) {
+  if (!task || typeof task !== 'string') return { ok: false, reason: 'INVALID_TASK_ID' };
+  if (!/^T\d+(-[A-Za-z0-9]+)*$/.test(task)) return { ok: false, reason: 'INVALID_TASK_ID' };
+  return { ok: true };
+}
+
+// F1b: validate bundle directory is within WF/bundles
+// Uses realpathResolved walk-up (like F1) + escapesRoot component check
+// Must be called BEFORE any filesystem mutation (mkdirSync, writeFileSync)
+function validateBundleDir(task) {
+  const v = validateTaskId(task);
+  if (!v.ok) return v;
+  const dir = join(WF, 'bundles', task);
+  const real = realpathResolved(dir);
+  if (!real) return { ok: false, reason: 'TRAVERSAL' };
+  const rel = relative(ROOT_REAL, real);
+  if (escapesRoot(rel)) return { ok: false, reason: 'TRAVERSAL' };
+  const normRel = normSeg(rel);
+  if (!normRel.startsWith('wf/bundles')) return { ok: false, reason: 'NOT_ALLOWED' };
+  return { ok: true, abs: real };
+}
+
 // F2: single logOnce function - writes one JSONL line with all required fields
 function logOnce(result, taskId, rawPaths, canonicalPaths) {
   const entry = {
@@ -266,12 +289,17 @@ export function lastEventHash() {
   return null;
 }
 export function bundleCreate(task, paths) {
-  const dir = join(WF, 'bundles', task);
+  const v = validateBundleDir(task);
+  if (!v.ok) throw new Error(v.reason);
+  const dir = v.abs;
   mkdirSync(dir, { recursive: true });
   const files = [];
   const lines = [];
   for (const p of paths) {
-    const h = sha256(readFileSync(join(ROOT, p)));
+    const fv = validateWorkspacePath(p);
+    if (!fv.ok) throw new Error(fv.reason);
+    if (!existsSync(fv.abs)) throw new Error('FILE_MISSING');
+    const h = sha256(readFileSync(fv.abs));
     files.push({ path: p, sha256: h });
     lines.push(`${h}  ${p}`);
   }
@@ -284,7 +312,9 @@ export function bundleCreate(task, paths) {
   return provenance;
 }
 export function bundleCheck(task) {
-  const dir = join(WF, 'bundles', task);
+  const v = validateBundleDir(task);
+  if (!v.ok) return { ok: false, errors: [{ path: task, reason: v.reason }] };
+  const dir = v.abs;
   const sumsPath = join(dir, 'SHA256SUMS');
   const provPath = join(dir, 'provenance.json');
   if (!existsSync(sumsPath) || !existsSync(provPath)) return { ok: false, errors: [{ path: dir, reason: 'BUNDLE_MISSING' }] };
@@ -850,11 +880,22 @@ if (cmd === 'make') {
   const task = args[0];
   const files = args.slice(1);
   if (!task || !files.length) { console.error('usage: bundle <task> <file...>'); process.exit(2); }
-  console.log(JSON.stringify(bundleCreate(task, files), null, 2));
+  try {
+    console.log(JSON.stringify(bundleCreate(task, files), null, 2));
+  } catch (err) {
+    const reason = err.message;
+    const isValidation = ['INVALID_TASK_ID', 'TRAVERSAL', 'NOT_ALLOWED', 'BLOCKED_PATH', 'FILE_MISSING'].includes(reason);
+    console.log(JSON.stringify({ ok: false, errors: [{ path: task, reason }] }, null, 2));
+    process.exit(isValidation ? 2 : 7);
+  }
 } else if (cmd === 'bundle-check') {
   const r = bundleCheck(args[0] ?? '');
   console.log(JSON.stringify(r, null, 2));
-  if (!r.ok) process.exit(7);
+  if (!r.ok) {
+    const reason = r.errors?.[0]?.reason ?? 'UNKNOWN';
+    const isValidation = ['INVALID_TASK_ID', 'TRAVERSAL', 'NOT_ALLOWED'].includes(reason);
+    process.exit(isValidation ? 2 : 7);
+  }
 } else if (cmd === 'standalone') {
   const file = args[0];
   if (!file || !existsSync(file)) {
