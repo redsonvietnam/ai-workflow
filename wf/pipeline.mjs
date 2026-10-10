@@ -113,8 +113,11 @@ function validateBundleDir(task) {
   if (!real) return { ok: false, reason: 'TRAVERSAL' };
   const rel = relative(ROOT_REAL, real);
   if (escapesRoot(rel)) return { ok: false, reason: 'TRAVERSAL' };
-  const normRel = normSeg(rel);
-  if (!normRel.startsWith('wf/bundles')) return { ok: false, reason: 'NOT_ALLOWED' };
+  // Component check: rel must be exactly 'wf/bundles/<task>' or start with 'wf/bundles/'
+  const segments = rel.split(sep);
+  if (segments.length < 3 || segments[0] !== 'wf' || segments[1] !== 'bundles') {
+    return { ok: false, reason: 'NOT_ALLOWED' };
+  }
   return { ok: true, abs: real };
 }
 
@@ -328,7 +331,10 @@ export function bundleCheck(task) {
     const m = line.match(/^([0-9a-f]{64})\s+(.+)$/);
     if (!m) { errors.push({ path: line, reason: 'SUMS_MALFORMED' }); continue; }
     const [, h, p] = m;
-    try { if (sha256(readFileSync(join(ROOT, p))) !== h) errors.push({ path: p, reason: 'HASH_MISMATCH' }); }
+    // Validate manifest path before reading (prevents traversal via malicious SHA256SUMS)
+    const fv = validateWorkspacePath(p);
+    if (!fv.ok) { errors.push({ path: p, reason: fv.reason }); continue; }
+    try { if (sha256(readFileSync(fv.abs)) !== h) errors.push({ path: p, reason: 'HASH_MISMATCH' }); }
     catch { errors.push({ path: p, reason: 'MISSING' }); }
   }
   return { ok: errors.length === 0, errors };

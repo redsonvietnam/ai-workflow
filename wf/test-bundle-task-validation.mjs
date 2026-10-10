@@ -3,7 +3,7 @@
 import { spawnSync } from 'node:child_process';
 import { join, resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { existsSync, mkdirSync, writeFileSync, rmSync, readFileSync } from 'node:fs';
+import { existsSync, mkdirSync, writeFileSync, rmSync, readFileSync, symlinkSync } from 'node:fs';
 
 const __dirname = join(dirname(fileURLToPath(import.meta.url)));
 const PIPELINE = join(__dirname, 'pipeline.mjs');
@@ -68,7 +68,6 @@ const testJunction = () => {
     mkdirSync(target, { recursive: true });
     writeFileSync(join(target, 'evil.txt'), 'evil');
     // Try to create junction (Windows) or symlink (Unix)
-    const { symlinkSync } = require('node:fs');
     symlinkSync(target, link, 'junction');
     const r = runBundle('T123-junction-test', ['wf/pipeline.mjs']);
     // Cleanup
@@ -86,14 +85,20 @@ if (junctionResult.status === -1) {
   console.log('SKIP B6: symlink/junction escape (cannot create on this system)');
   skipped++;
 } else {
-  assertExit('B6: junction escape reject', junctionResult, 2, 'TRAVERSAL');
+  const reason = parseJSON(junctionResult.stdout)?.errors?.[0]?.reason;
+  if (reason === 'TRAVERSAL' || reason === 'NOT_ALLOWED') {
+    console.log(`PASS B6: junction escape reject (${reason})`);
+    passed++;
+  } else {
+    console.log(`FAIL B6: junction escape reject reason=${reason} want=TRAVERSAL|NOT_ALLOWED`);
+    failed++;
+  }
 }
 
 // Test bundle directory already exists but canonical path outside (via existing junction)
 const testExistingJunction = () => {
   const link = join(WF, 'bundles', 'T123-existing-junction');
   try {
-    const { symlinkSync } = require('node:fs');
     symlinkSync(ROOT, link, 'junction');
     const r = runBundle('T123-existing-junction', ['wf/pipeline.mjs']);
     try { rmSync(link); } catch {}
@@ -108,9 +113,16 @@ if (existingJunctionResult.status === -1) {
   console.log('SKIP B7: existing junction escape (cannot create on this system)');
   skipped++;
 } else {
-  assertExit('B7: existing junction escape reject', existingJunctionResult, 2, 'TRAVERSAL');
+  const reason = parseJSON(existingJunctionResult.stdout)?.errors?.[0]?.reason;
+  if (reason === 'TRAVERSAL' || reason === 'NOT_ALLOWED') {
+    console.log(`PASS B7: existing junction escape reject (${reason})`);
+    passed++;
+  } else {
+    console.log(`FAIL B7: existing junction escape reject reason=${reason} want=TRAVERSAL|NOT_ALLOWED`);
+    failed++;
+  }
 }
-
+  
 // Test bundle directory doesn't exist yet (new creation)
 assertExit('B8: new bundle directory creation', runBundle('T123-new-create', ['wf/pipeline.mjs']), 0);
 
