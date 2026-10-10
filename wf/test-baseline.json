@@ -1,0 +1,114 @@
+{
+  "test-accounting.mjs": {
+    "minPassed": 4,
+    "maxSkipped": {
+      "win32": 0,
+      "linux": 0,
+      "darwin": 0
+    }
+  },
+  "test-apply.mjs": {
+    "minPassed": 4,
+    "maxSkipped": {
+      "win32": 0,
+      "linux": 0,
+      "darwin": 0
+    }
+  },
+  "test-bundle-task-validation.mjs": {
+    "minPassed": 28,
+    "maxSkipped": {
+      "win32": 1,
+      "linux": 1,
+      "darwin": 1
+    }
+  },
+  "test-dispute.mjs": {
+    "minPassed": 9,
+    "maxSkipped": {
+      "win32": 0,
+      "linux": 0,
+      "darwin": 0
+    }
+  },
+  "test-f2-error-branches.mjs": {
+    "minPassed": 18,
+    "maxSkipped": {
+      "win32": 0,
+      "linux": 0,
+      "darwin": 0
+    }
+  },
+  "test-f3-state-validation.mjs": {
+    "minPassed": 4,
+    "maxSkipped": {
+      "win32": 0,
+      "linux": 0,
+      "darwin": 0
+    }
+  },
+  "test-log-concurrency.mjs": {
+    "minPassed": 4,
+    "maxSkipped": {
+      "win32": 0,
+      "linux": 0,
+      "darwin": 0
+    }
+  },
+  "test-path-negative.mjs": {
+    "minPassed": 52,
+    "maxSkipped": {
+      "win32": 3,
+      "linux": 3,
+      "darwin": 3
+    }
+  },
+  "test-payload-log.mjs": {
+    "minPassed": 0,
+    "maxSkipped": {
+      "win32": 0,
+      "linux": 0,
+      "darwin": 0
+    }
+  },
+  "test-plan.mjs": {
+    "minPassed": 13,
+    "maxSkipped": {
+      "win32": 0,
+      "linux": 0,
+      "darwin": 0
+    }
+  },
+  "test-seal.mjs": {
+    "minPassed": 12,
+    "maxSkipped": {
+      "win32": 0,
+      "linux": 0,
+      "darwin": 0
+    }
+  },
+  "test-secrets.mjs": {
+    "minPassed": 17,
+    "maxSkipped": {
+      "win32": 0,
+      "linux": 0,
+      "darwin": 0
+    }
+  },
+  "test-state.mjs": {
+    "minPassed": 8,
+    "maxSkipped": {
+      "win32": 0,
+      "linux": 0,
+      "darwin": 0
+    }
+  },
+  "test-t134.mjs": {
+    "minPassed": 7,
+    "maxSkipped": {
+      "win32": 1,
+      "linux": 1,
+      "darwin": 1
+    }
+  }
+}
