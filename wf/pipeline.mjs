@@ -139,14 +139,37 @@ function logOnce(result, trace) {
     entry.written = result.written.slice(0, 200);
     if (result.written.length > 200) entry.truncated = true;
   }
-  // For errors with content: include sha256 + length only (no content/preview)
-  if (!result.ok && result.extra && result.extra.content) {
-    const content = String(result.extra.content);
-    entry.content = [{ sha256: createHash('sha256').update(content, 'utf8').digest('hex'), length: Buffer.byteLength(content, 'utf8') }];
+  // For rejects, retain only digest/byte-length metadata for inline content already in the plan.
+  if (!result.ok && Array.isArray(trace?.contentDigests) && trace.contentDigests.length) {
+    entry.content = trace.contentDigests;
   }
   // Redact each string field before truncation
   const redactedEntry = redactObject(entry);
   try { logToJsonl(redactedEntry); } catch (e) { process.stderr.write('LOG_FAILED ' + e.message + '\n'); }
+}
+
+// Reject metadata is an allowlist: never retain source/target paths, plan entries,
+// messages, or file content. Keep only normalized in-root relative metadata.
+function safeApplyRejectExtra(extra = {}) {
+  const safe = {};
+  if (typeof extra.rel === 'string' && extra.rel.length > 0
+      && !isAbsolute(extra.rel) && !escapesRoot(extra.rel)
+      && !extra.rel.includes(':')) {
+    safe.rel = extra.rel;
+  }
+  if (Array.isArray(extra.stale)) {
+    const stale = extra.stale.map((item) => {
+      if (!item || typeof item.path !== 'string' || isAbsolute(item.path)
+          || escapesRoot(item.path) || item.path.includes(':')) return null;
+      const row = { path: item.path };
+      if (typeof item.expected === 'string' && /^[0-9a-f]{64}$/.test(item.expected)) row.expected = item.expected;
+      if (typeof item.actual === 'string' && /^[0-9a-f]{64}$/.test(item.actual)) row.actual = item.actual;
+      else if (item.actual === null) row.actual = null;
+      return row;
+    }).filter(Boolean);
+    if (stale.length) safe.stale = stale;
+  }
+  return safe;
 }
 
 // F2: ApplyReject error class - replaces bail()
@@ -155,21 +178,21 @@ class ApplyReject extends Error {
     super(reason);
     this.name = 'ApplyReject';
     this.reason = reason;
-    this.extra = extra;
+    this.extra = safeApplyRejectExtra(extra);
   }
 }
 
-// Convert any error to a normalized result object
+// Convert any error to a normalized result object. Error messages may contain paths
+// or user-controlled data, so only stable reason codes and allowlisted metadata leave here.
 function toResult(err) {
   if (err instanceof ApplyReject) {
-    return { ok: false, reason: err.reason, extra: err.extra };
+    const extra = safeApplyRejectExtra(err.extra);
+    return Object.keys(extra).length ? { ok: false, reason: err.reason, extra } : { ok: false, reason: err.reason };
   }
-  // FS errors with codes like ENOENT, EPERM, EACCES, EBUSY -> APPLY_ERROR
   if (err && typeof err === 'object' && typeof err.code === 'string' && /^E[A-Z]+$/.test(err.code)) {
-    return { ok: false, reason: 'APPLY_ERROR', extra: { message: String(err.message || err) } };
+    return { ok: false, reason: 'APPLY_ERROR' };
   }
-  // Any other error -> INTERNAL
-  return { ok: false, reason: 'INTERNAL', extra: { message: String(err && err.message || err) } };
+  return { ok: false, reason: 'INTERNAL' };
 }
 
 // Derive process exit code from result
@@ -196,17 +219,25 @@ async function runApply(planPath, trace) {
   for (const e of entries) {
     if (!e || typeof e.path !== 'string' || e.path.length === 0) throw new ApplyReject('ENTRY_INVALID', { entry: e });
     if (e.before_sha256 !== null && !(typeof e.before_sha256 === 'string' && /^[0-9a-f]{64}$/.test(e.before_sha256))) throw new ApplyReject('ENTRY_INVALID', { entry: e });
-    // Read content FIRST so it's available for logging even on validation errors
+    // Inline plan content is already in memory; record only its digest/length for reject audit.
+    if (typeof e.content === 'string' && trace) {
+      trace.contentDigests ??= [];
+      trace.contentDigests.push({ sha256: createHash('sha256').update(e.content, 'utf8').digest('hex'), length: Buffer.byteLength(e.content, 'utf8') });
+    }
+    // Validate the target and content source boundaries before reading source bytes.
+    const v = validateWorkspacePath(e.path);
+    if (!v.ok) throw new ApplyReject(v.reason, { path: e.path });
+    const { abs, rel } = v;
+    if (!allowRel(rel)) throw new ApplyReject('NOT_ALLOWED', { rel });
+
     let content = null;
     if (typeof e.content === 'string') content = e.content;
     else if (typeof e.contentPath === 'string') {
-      try { content = readFileSync(resolve(ROOT, e.contentPath), 'utf8'); } catch { throw new ApplyReject('CONTENT_UNREADABLE', { path: e.contentPath }); }
+      const source = validateWorkspacePath(e.contentPath);
+      if (!source.ok) throw new ApplyReject(source.reason, { path: e.contentPath });
+      try { content = readFileSync(source.abs, 'utf8'); }
+      catch { throw new ApplyReject('CONTENT_UNREADABLE', { path: e.contentPath }); }
     } else throw new ApplyReject('ENTRY_NO_CONTENT', { entry: e });
-    // Then validate path
-    const v = validateWorkspacePath(e.path);
-    if (!v.ok) throw new ApplyReject(v.reason, { path: e.path, content });
-    const { abs, rel } = v;
-    if (!allowRel(rel)) throw new ApplyReject('NOT_ALLOWED', { rel, content });
     if (trace) { trace.rawPaths.push(e.path); trace.canonicalPaths.push(v.abs); }
     resolved.push({ abs: v.abs, rel, before: e.before_sha256, content });
   }
