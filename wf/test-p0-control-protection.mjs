@@ -131,7 +131,9 @@ const protectedPaths = [
   'wf/logs/should-not-write.jsonl',
   'wf/test-p0-control-protection.mjs',
   'wf/other-baseline.json',
-  'wf/bundles/p0-control-protection/sha256sums'
+  'wf/bundles/p0-control-protection/sha256sums',
+  'wf/bundles/p0-control-protection/provenance.json',
+  'WF/BUNDLES/P0-CONTROL-PROTECTION/PROVENANCE.JSON'
 ];
 for (const rel of protectedPaths) {
   let workspace;

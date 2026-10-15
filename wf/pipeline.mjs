@@ -233,7 +233,7 @@ async function runApply(planPath, trace) {
     if (/^wf\/[^/]*baseline[^/]*\.json$/i.test(p)) return true;
     if (/^wf\/verdict-[^/]+\.json$/i.test(p)) return true;
     if (/^wf\/(?:evidence|logs)(?:\/|$)/i.test(p)) return true;
-    if (/^wf\/bundles\/[^/]+\/sha256sums$/i.test(p)) return true;
+    if (/^wf\/bundles\/[^/]+\/(?:sha256sums|provenance\.json)$/i.test(p)) return true;
     return false;
   };
   const allowRel = (rel) => {
