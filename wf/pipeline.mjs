@@ -324,9 +324,11 @@ async function runApply(planPath, trace) {
   };
   const assertOwnedTemp = (record) => {
     if (!record) throw new ApplyReject('APPLY_ERROR');
-    const checked = validateWorkspacePath(record.path);
-    // Compare resolved containment plus the opened inode below. Do not compare
-    // path strings: macOS may spell the same temp location as /var or /private/var.
+    // Validate a path relative to the real workspace root. The temp path is
+    // already resolved and may use /private/var while WF_ROOT uses /var on macOS.
+    const tempRel = relative(ROOT_REAL, record.path);
+    if (escapesRoot(tempRel)) throw new ApplyReject('TRAVERSAL');
+    const checked = validateWorkspacePath(tempRel);
     if (!checked.ok) throw new ApplyReject(checked.reason ?? 'TRAVERSAL');
     let stat;
     try { stat = lstatSync(record.path, { bigint: true }); }
