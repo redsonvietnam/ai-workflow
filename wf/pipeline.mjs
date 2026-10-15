@@ -325,9 +325,9 @@ async function runApply(planPath, trace) {
   const assertOwnedTemp = (record) => {
     if (!record) throw new ApplyReject('APPLY_ERROR');
     const checked = validateWorkspacePath(record.path);
-    if (!checked.ok || checked.abs !== record.path) {
-      throw new ApplyReject(checked.reason ?? 'TRAVERSAL');
-    }
+    // Compare resolved containment plus the opened inode below. Do not compare
+    // path strings: macOS may spell the same temp location as /var or /private/var.
+    if (!checked.ok) throw new ApplyReject(checked.reason ?? 'TRAVERSAL');
     let stat;
     try { stat = lstatSync(record.path, { bigint: true }); }
     catch { throw new ApplyReject('STALE_REJECT'); }
