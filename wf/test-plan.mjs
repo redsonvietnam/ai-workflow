@@ -1,6 +1,6 @@
 // T146 inbox/outbox — plan-extract, plan-prepare, full flow via WF_ROOT.
 import { spawnSync } from 'node:child_process';
-import { mkdtempSync, writeFileSync, readFileSync, existsSync, mkdirSync } from 'node:fs';
+import { writeFileSync, readFileSync, existsSync, mkdirSync, symlinkSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { tmpDir, run as harnessRun, parse, check, done } from './lib/test-harness.mjs';
@@ -115,12 +115,12 @@ writeFileSync(rf11, reply11);
 const e11 = run(ROOT, 'plan-extract', rf11);
 check('11-extract-all-bad', e11.status === 2 && parseOut(e11)?.reason === 'PLAN_MALFORMED', JSON.stringify(parseOut(e11)));
 
-// 12: symlink escape (Windows: mklink /D) → TRAVERSAL exit 2
-const outsideDir = mkdtempSync(join(process.env.TEMP || process.env.TMP, 't146-out-'));
+// 12: symlink escape (POSIX + Windows) → TRAVERSAL exit 2
+const outsideDir = tmpDir('t146-out-');
 writeFileSync(join(outsideDir, 'escape.txt'), 'leaked');
 const linkPath = join(ROOT, 'wf', 'symescape');
 let symlinkOk = false;
-try { spawnSync('cmd', ['/c', 'mklink', '/D', linkPath, outsideDir], { encoding: 'utf8' }); symlinkOk = existsSync(linkPath); } catch { /* skip */ }
+try { symlinkSync(outsideDir, linkPath, 'dir'); symlinkOk = existsSync(linkPath); } catch { /* symlink unavailable on restricted hosts */ }
 if (symlinkOk) {
   const planS = join(ROOT, 'planS.json');
   writeFileSync(planS, JSON.stringify({ files: [{ path: 'wf/symescape/escape.txt', content: 'x' }] }));
