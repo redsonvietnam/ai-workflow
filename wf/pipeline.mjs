@@ -220,13 +220,13 @@ async function runApply(planPath, trace) {
   if (!Array.isArray(entries) || entries.length === 0) throw new ApplyReject('PLAN_EMPTY');
   const protectedWorkflowPath = (rel) => {
     const p = rel.split(sep).join('/');
-    const key = WIN ? p.toLowerCase() : p;
+    const key = p.toLowerCase();
     if ([
       'wf/pipeline.mjs', 'wf/verify-standalone.mjs', 'wf/prereg-manifest.json',
       'wf/state.json', 'wf/test-baseline.json', 'wf/wf-v1.schema.json',
       'wf/payload-log.mjs', 'wf/payload-log-cli.mjs', 'wf/run-all.mjs',
       'wf/check-syntax.mjs', 'wf/git-gate.ps1', 'wf/report.mjs',
-      'wf/secret-patterns.json', 'wf/.apply.lock', 'LOG.md', 'log.md'
+      'wf/secret-patterns.json', 'wf/.apply.lock', 'log.md'
     ].includes(key)) return true;
     if (/^wf\/(?:\.run|lib)(?:\/|$)/i.test(p)) return true;
     if (/^wf\/test-[^/]+\.mjs$/i.test(p)) return true;
@@ -281,11 +281,11 @@ async function runApply(planPath, trace) {
     if (!v.ok) throw new ApplyReject(v.reason, { path: e.path });
     const { abs, rel } = v;
     const normalizedRel = rel.split(sep).join('/');
-    const baselineTarget = (WIN ? normalizedRel.toLowerCase() : normalizedRel) === 'wf/test-baseline.json';
+    const baselineTarget = normalizedRel.toLowerCase() === 'wf/test-baseline.json';
     const baselineCandidate = baselineTarget && entries.length === 1 && typeof e.before_sha256 === 'string';
     if (!allowRel(rel) && !baselineCandidate) throw new ApplyReject('NOT_ALLOWED', { rel });
 
-    const targetKey = WIN ? abs.toLowerCase() : abs;
+    const targetKey = abs.toLowerCase();
     if (targetKeys.has(targetKey)) throw new ApplyReject('ENTRY_INVALID', { rel });
     targetKeys.add(targetKey);
 

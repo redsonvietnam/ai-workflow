@@ -104,6 +104,12 @@ function targetBytes(workspace, rel) {
 }
 
 const protectedPaths = [
+  'wf/PAYLOAD-LOG.MJS',
+  'wf/STATE.JSON',
+  'wf/PREREG-MANIFEST.JSON',
+  'wf/TEST-BASELINE.JSON',
+  'wf/RUN-ALL.MJS',
+  'wf/WF-V1.SCHEMA.JSON',
   'LOG.md',
   'log.md',
   'wf/pipeline.mjs',

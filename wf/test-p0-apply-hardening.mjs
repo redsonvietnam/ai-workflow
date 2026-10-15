@@ -92,6 +92,7 @@ function parseOutput(r) {
 }
 
 let race;
+let caseCollision;
 let atomic;
 let applyCollision;
 let rollbackCollision;
@@ -106,6 +107,18 @@ try {
     'actual=' + readFileSync(race.a, 'utf8'));
   check('TOCTOU-second-target-untouched', readFileSync(race.b, 'utf8') === 'old-b',
     'actual=' + readFileSync(race.b, 'utf8'));
+
+  caseCollision = fixture('case-collision', 'protected-alias');
+  writeFileSync(caseCollision.planPath, JSON.stringify({ files: [
+    { path: 'wf/tasks/case-collision-a.txt', before_sha256: sha('old-a'), content: 'first-candidate' },
+    { path: 'wf/tasks/CASE-COLLISION-A.TXT', before_sha256: sha('old-a'), content: 'second-candidate' }
+  ] }, null, 2) + '\n');
+  const caseCollisionRun = runApply(caseCollision, {});
+  const caseCollisionResult = parseOutput(caseCollisionRun);
+  check('case-variant duplicate targets rejected', caseCollisionRun.status !== 0 && caseCollisionResult?.reason === 'ENTRY_INVALID',
+    'exit=' + caseCollisionRun.status + ' reason=' + (caseCollisionResult?.reason ?? 'missing'));
+  check('case-variant duplicate target leaves original unchanged', readFileSync(caseCollision.a, 'utf8') === 'old-a',
+    'actual=' + readFileSync(caseCollision.a, 'utf8'));
 
   atomic = fixture('atomic', 'commit-failure');
   const atomicRun = runApply(atomic, { P0_TEST_FAIL_AFTER_FIRST_RENAME: '1' });
@@ -176,6 +189,7 @@ try {
   }
 } finally {
   if (race) rmSync(race.base, { recursive: true, force: true });
+  if (caseCollision) rmSync(caseCollision.base, { recursive: true, force: true });
   if (atomic) rmSync(atomic.base, { recursive: true, force: true });
   if (applyCollision) rmSync(applyCollision.base, { recursive: true, force: true });
   if (rollbackCollision) rmSync(rollbackCollision.base, { recursive: true, force: true });
