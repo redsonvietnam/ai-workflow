@@ -2,7 +2,7 @@
 // WF:v1 pipeline — HASH/SEQ do script tính, KHÔNG nhờ model.
 import { createHash, randomUUID } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
-import { readFileSync, writeFileSync, mkdirSync, existsSync, openSync, closeSync, unlinkSync, renameSync, realpathSync, writeSync, appendFileSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdirSync, existsSync, openSync, closeSync, unlinkSync, renameSync, realpathSync, writeSync, appendFileSync, fstatSync, lstatSync } from 'node:fs';
 import { logPayload, redactString, redactObject } from './payload-log.mjs';
 import { dirname, join, resolve, sep, isAbsolute, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -308,7 +308,7 @@ async function runApply(planPath, trace) {
       if (!exactPayloadLogBaselineUpdate(beforeText, content)) throw new ApplyReject('NOT_ALLOWED', { rel });
     }
     if (trace) { trace.rawPaths.push(e.path); trace.canonicalPaths.push(v.abs); }
-    resolved.push({ abs: v.abs, rel, rawPath: e.path, before: e.before_sha256, content, original: null, temp: null });
+    resolved.push({ abs: v.abs, rel, rawPath: e.path, before: e.before_sha256, content, original: null, temp: null, tempIdentity: null });
   }
 
   const LOCK = join(WF, '.apply.lock');
@@ -316,6 +316,32 @@ async function runApply(planPath, trace) {
   try { fd = openSync(LOCK, 'wx'); } catch { throw new ApplyReject('LOCKED', { lock: LOCK }); }
   const temps = [];
   const committed = [];
+  const trackTemp = (tempPath, fd) => {
+    const stat = fstatSync(fd, { bigint: true });
+    const record = { path: tempPath, dev: stat.dev, ino: stat.ino };
+    temps.push(record);
+    return record;
+  };
+  const assertOwnedTemp = (record) => {
+    if (!record) throw new ApplyReject('APPLY_ERROR');
+    const checked = validateWorkspacePath(record.path);
+    if (!checked.ok || checked.abs !== record.path) {
+      throw new ApplyReject(checked.reason ?? 'TRAVERSAL');
+    }
+    let stat;
+    try { stat = lstatSync(record.path, { bigint: true }); }
+    catch { throw new ApplyReject('STALE_REJECT'); }
+    if (!stat.isFile() || stat.dev !== record.dev || stat.ino !== record.ino) {
+      throw new ApplyReject('STALE_REJECT');
+    }
+  };
+  const removeOwnedTemp = (record) => {
+    try {
+      const stat = lstatSync(record.path, { bigint: true });
+      // Do not unlink a different file occupying a stale path after a parent swap.
+      if (stat.isFile() && stat.dev === record.dev && stat.ino === record.ino) unlinkSync(record.path);
+    } catch { /* absent, inaccessible, or no longer the original temp */ }
+  };
   try {
     const stale = [];
     for (const e of resolved) {
@@ -342,7 +368,7 @@ async function runApply(planPath, trace) {
       if (checked.abs !== e.abs) throw new ApplyReject('TRAVERSAL', { path: e.rawPath });
       const tmp = e.abs + '.tmp-apply-' + randomUUID();
       const tempFd = openSync(tmp, 'wx');
-      temps.push(tmp); // Track only after exclusive creation proves we own this path.
+      e.tempIdentity = trackTemp(tmp, tempFd); // Track the opened file's identity, not just its pathname.
       try { writeFileSync(tempFd, e.content, 'utf8'); }
       finally { closeSync(tempFd); }
       e.temp = tmp;
@@ -360,8 +386,21 @@ async function runApply(planPath, trace) {
         if (cur !== e.before) {
           throw new ApplyReject('STALE_REJECT', { stale: [{ path: e.rel, expected: e.before, actual: cur }] });
         }
+        // Recheck target containment and temporary-file identity adjacent to rename.
+        assertOwnedTemp(e.tempIdentity);
+        const finalTarget = validateWorkspacePath(e.rawPath);
+        if (!finalTarget.ok || finalTarget.abs !== e.abs) {
+          throw new ApplyReject(finalTarget.reason ?? 'TRAVERSAL', { path: e.rawPath });
+        }
+        const targetNow = existsSync(e.abs) ? readFileSync(e.abs) : null;
+        const targetHash = targetNow === null ? null : createHash('sha256').update(targetNow).digest('hex');
+        if (targetHash !== e.before) {
+          throw new ApplyReject('STALE_REJECT', { stale: [{ path: e.rel, expected: e.before, actual: targetHash }] });
+        }
+        assertOwnedTemp(e.tempIdentity);
         renameSync(e.temp, e.abs);
         e.temp = null;
+        e.tempIdentity = null;
         committed.push(e);
         written.push(e.rel);
       }
@@ -382,9 +421,15 @@ async function runApply(planPath, trace) {
           } else {
             const rollbackTemp = e.abs + '.tmp-rollback-' + randomUUID();
             const rollbackFd = openSync(rollbackTemp, 'wx');
-            temps.push(rollbackTemp); // Cleanup only files exclusively created by this rollback attempt.
+            const rollbackIdentity = trackTemp(rollbackTemp, rollbackFd);
             try { writeFileSync(rollbackFd, e.original); }
             finally { closeSync(rollbackFd); }
+            const rollbackTarget = validateWorkspacePath(e.rawPath);
+            if (!rollbackTarget.ok || rollbackTarget.abs !== e.abs) throw new Error('ROLLBACK_TARGET_UNSAFE');
+            assertOwnedTemp(rollbackIdentity);
+            const rollbackTargetNow = validateWorkspacePath(e.rawPath);
+            if (!rollbackTargetNow.ok || rollbackTargetNow.abs !== e.abs) throw new Error('ROLLBACK_TARGET_UNSAFE');
+            assertOwnedTemp(rollbackIdentity);
             renameSync(rollbackTemp, e.abs);
           }
         } catch {
@@ -398,7 +443,7 @@ async function runApply(planPath, trace) {
   } finally {
     try { if (fd !== null) closeSync(fd); } catch { /* ignore */ }
     try { if (existsSync(LOCK)) unlinkSync(LOCK); } catch { /* ignore */ }
-    for (const t of temps) { try { if (existsSync(t)) unlinkSync(t); } catch { /* ignore */ } }
+    for (const t of temps) removeOwnedTemp(t);
   }
 }
 function inRoot(candidate) {

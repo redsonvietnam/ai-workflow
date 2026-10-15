@@ -31,7 +31,19 @@ function fixture(label, fault) {
   copyFileSync(SOURCE_PAYLOAD_LOG, join(wf, 'payload-log.mjs'));
 
   let pipelineText = readFileSync(SOURCE_PIPELINE, 'utf8');
-  if (fault === 'race') {
+  if (fault === 'parent-pivot') {
+    const lines = pipelineText.split(/\r?\n/);
+    const index = lines.findIndex((line, i) => line.trim() === '// Revalidate and rehash each target immediately before its atomic replacement.' && lines[i + 1]?.trim() === 'for (const e of resolved) {');
+    if (index < 0) throw new Error('parent-pivot loop anchor missing or ambiguous');
+    lines.splice(index + 2, 0,
+      "        if (process.env.P0_TEST_PARENT_PIVOT === '1' && /parent-pivot-a\\.txt$/i.test(e.rel)) {",
+      "          writeFileSync(join(process.env.P0_TEST_OUTSIDE_DIR, e.temp.slice(e.temp.lastIndexOf(sep) + 1)), 'ATTACKER-CONTROLLED-TEMP');",
+      '          renameSync(dirname(e.abs), process.env.P0_TEST_HELD_DIR);',
+      "          await import('node:fs').then(({ symlinkSync }) => symlinkSync(process.env.P0_TEST_OUTSIDE_DIR, dirname(e.abs), 'junction'));",
+      '        }'
+    );
+    pipelineText = lines.join('\n');
+  } else if (fault === 'race') {
     const anchor = "if (stale.length) throw new ApplyReject('STALE_REJECT', { stale });";
     if (pipelineText.split(anchor).length !== 2) throw new Error('race injection anchor missing or ambiguous');
     pipelineText = pipelineText.replace(anchor, anchor + '\n' +
@@ -76,7 +88,10 @@ function fixture(label, fault) {
     { path: 'wf/tasks/' + label + '-a.txt', before_sha256: sha('old-a'), content: 'new-a' },
     { path: 'wf/tasks/' + label + '-b.txt', before_sha256: sha('old-b'), content: 'new-b' }
   ] }, null, 2) + '\n');
-  return { base, root, wf, tasks, a, b, planPath };
+  const outside = join(base, 'outside');
+  const held = join(wf, label + '-tasks-held');
+  if (fault === 'parent-pivot') mkdirSync(outside, { recursive: true });
+  return { base, root, wf, tasks, a, b, planPath, outside, held };
 }
 function runApply(f, extraEnv) {
   return spawnSync(process.execPath, [join(f.wf, 'pipeline.mjs'), 'apply', f.planPath], {
@@ -92,6 +107,7 @@ function parseOutput(r) {
 }
 
 let race;
+let parentPivot;
 let caseCollision;
 let atomic;
 let applyCollision;
@@ -107,6 +123,24 @@ try {
     'actual=' + readFileSync(race.a, 'utf8'));
   check('TOCTOU-second-target-untouched', readFileSync(race.b, 'utf8') === 'old-b',
     'actual=' + readFileSync(race.b, 'utf8'));
+
+  parentPivot = fixture('parent-pivot', 'parent-pivot');
+  const pivotRun = runApply(parentPivot, {
+    P0_TEST_PARENT_PIVOT: '1',
+    P0_TEST_OUTSIDE_DIR: parentPivot.outside,
+    P0_TEST_HELD_DIR: parentPivot.held
+  });
+  const pivotResult = parseOutput(pivotRun);
+  check('parent-directory pivot rejected before rename', pivotRun.status !== 0 && pivotResult?.ok === false && pivotResult?.reason === 'TRAVERSAL',
+    'exit=' + pivotRun.status + ' reason=' + (pivotResult?.reason ?? 'missing'));
+  check('parent-directory pivot does not write target outside', !existsSync(join(parentPivot.outside, 'parent-pivot-a.txt')));
+  const outsideTemp = readdirSync(parentPivot.outside).find(name => name.includes('.tmp-apply-'));
+  check('parent-directory pivot preserves foreign same-name temp', Boolean(outsideTemp) && readFileSync(join(parentPivot.outside, outsideTemp), 'utf8') === 'ATTACKER-CONTROLLED-TEMP',
+    'temp=' + (outsideTemp ?? 'missing'));
+  const movedTemp = readdirSync(parentPivot.held).find(name => name.includes('.tmp-apply-'));
+  check('parent-directory pivot leaves our staged temp in moved original parent', Boolean(movedTemp) && readFileSync(join(parentPivot.held, movedTemp), 'utf8') === 'new-a',
+    'temp=' + (movedTemp ?? 'missing'));
+  check('parent-directory pivot retains original targets', readFileSync(join(parentPivot.held, 'parent-pivot-a.txt'), 'utf8') === 'old-a' && readFileSync(join(parentPivot.held, 'parent-pivot-b.txt'), 'utf8') === 'old-b');
 
   caseCollision = fixture('case-collision', 'protected-alias');
   writeFileSync(caseCollision.planPath, JSON.stringify({ files: [
@@ -189,6 +223,7 @@ try {
   }
 } finally {
   if (race) rmSync(race.base, { recursive: true, force: true });
+  if (parentPivot) rmSync(parentPivot.base, { recursive: true, force: true });
   if (caseCollision) rmSync(caseCollision.base, { recursive: true, force: true });
   if (atomic) rmSync(atomic.base, { recursive: true, force: true });
   if (applyCollision) rmSync(applyCollision.base, { recursive: true, force: true });

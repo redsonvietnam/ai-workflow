@@ -144,7 +144,7 @@
     }
   },
   "test-p0-apply-hardening.mjs": {
-    "minPassed": 18,
+    "minPassed": 21,
     "maxSkipped": {
       "win32": 1,
       "linux": 1,
