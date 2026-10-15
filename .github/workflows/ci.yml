@@ -31,6 +31,8 @@ jobs:
           node wf/test-t134.mjs
           node wf/test-plan.mjs
           node wf/test-path-negative.mjs
+          node wf/test-p0-apply-boundary.mjs
+          node wf/test-p0-apply-hardening.mjs
           node wf/test-f3-state-validation.mjs
           node wf/test-payload-log.mjs
           node wf/pipeline.mjs verifychain
@@ -56,6 +58,8 @@ jobs:
           node wf/test-t134.mjs
           node wf/test-plan.mjs
           node wf/test-path-negative.mjs
+          node wf/test-p0-apply-boundary.mjs
+          node wf/test-p0-apply-hardening.mjs
           node wf/test-f3-state-validation.mjs
           node wf/test-payload-log.mjs
           node wf/pipeline.mjs verifychain

@@ -126,11 +126,10 @@ writeFileSync(join(ROOT, 'docs', '.environment'), 'N');
 const m19c = runMake(ROOT, 'docs/.environment');
 check('P19c-dot-environment', m19c.status === 0 && !/BLOCKED_PATH/.test(m19c.stderr), `status=${m19c.status} err=${m19c.stderr.trim()}`);
 
-skip('P20-toctou', 'KNOWN LIMITATION (P20): Time-of-Check-Time-of-Use (TOCTOU) race condition not mitigated. ' +
-  'Window exists between validateWorkspacePath() check and writeFileSync/renameSync execution. ' +
-  'Attacker could replace target with symlink/junction between check and write. ' +
-  'Mitigation (e.g., open with O_NOFOLLOW, atomic rename) deferred per Claude decision: ' +
-  'accept risk, document limitation, handle in future if needed.');
+skip('P20-toctou', 'RESIDUAL LIMITATION (P20): partial mitigation now revalidates canonical paths and rehashes ' +
+  'each target after the initial stale pass and immediately before rename; deterministic post-stale races are rejected. ' +
+  'A narrow filesystem race between the final check and rename is not proven impossible, and crash-safe multi-file ' +
+  'atomicity is not provided. Full elimination needs platform-specific handle-relative/no-follow primitives or a narrower threat model.');
 
 // ===== GROUP 2: apply (plan) =====
 const a1 = planRun(ROOT, [{ path: '../escape-plan.txt', before_sha256: null, content: 'E' }]);

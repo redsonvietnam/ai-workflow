@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // WF:v1 pipeline — HASH/SEQ do script tính, KHÔNG nhờ model.
-import { createHash } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 import { readFileSync, writeFileSync, mkdirSync, existsSync, openSync, closeSync, unlinkSync, renameSync, realpathSync, writeSync, appendFileSync } from 'node:fs';
 import { logPayload, redactString, redactObject } from './payload-log.mjs';
@@ -78,6 +78,7 @@ const ERROR_CLASS_MAP = {
   STALE_REJECT: 'CONCURRENCY',
   LOCKED: 'CONCURRENCY',
   APPLY_ERROR: 'IO_ERROR',
+  ROLLBACK_FAILED: 'IO_ERROR',
 };
 
 function errorClassFor(reason) {
@@ -157,6 +158,11 @@ function safeApplyRejectExtra(extra = {}) {
       && !extra.rel.includes(':')) {
     safe.rel = extra.rel;
   }
+  if (Array.isArray(extra.rollbackFailed)) {
+    const failedPaths = extra.rollbackFailed.filter((p) => typeof p === 'string' && p.length > 0
+      && !isAbsolute(p) && !escapesRoot(p) && !p.includes(':')).slice(0, 200);
+    if (failedPaths.length) safe.rollbackFailed = failedPaths;
+  }
   if (Array.isArray(extra.stale)) {
     const stale = extra.stale.map((item) => {
       if (!item || typeof item.path !== 'string' || isAbsolute(item.path)
@@ -212,23 +218,71 @@ async function runApply(planPath, trace) {
   try { plan = JSON.parse(planText); } catch { throw new ApplyReject('PLAN_MALFORMED'); }
   const entries = Array.isArray(plan) ? plan : plan.files;
   if (!Array.isArray(entries) || entries.length === 0) throw new ApplyReject('PLAN_EMPTY');
-  const allowRel = (rel) => rel.split(sep).join('/').startsWith('wf/') || /^(CONTEXT|DECISIONS|LOG)\.md$/.test(rel) || /^\.git(ignore)$/.test(rel);
+  const protectedWorkflowPath = (rel) => {
+    const p = rel.split(sep).join('/');
+    const key = WIN ? p.toLowerCase() : p;
+    if (['wf/pipeline.mjs', 'wf/verify-standalone.mjs', 'wf/prereg-manifest.json',
+      'wf/state.json', 'wf/test-baseline.json', 'wf/wf-v1.schema.json',
+      'wf/logs/code-local-payloads.jsonl', 'log.md'].includes(key)) return true;
+    if (/^wf\/test-[^/]+\.mjs$/i.test(p)) return true;
+    if (/^wf\/[^/]*baseline[^/]*\.json$/i.test(p)) return true;
+    if (/^wf\/verdict-[^/]+\.json$/i.test(p)) return true;
+    if (/^wf\/(?:evidence|logs)(?:\/|$)/i.test(p)) return true;
+    if (/^wf\/bundles\/[^/]+\/sha256sums$/i.test(p)) return true;
+    return false;
+  };
+  const allowRel = (rel) => {
+    const normalizedRel = rel.split(sep).join('/');
+    const allowed = normalizedRel.startsWith('wf/')
+      || /^(CONTEXT|DECISIONS|LOG)\.md$/.test(normalizedRel)
+      || /^\.git(ignore)$/.test(normalizedRel);
+    return allowed && !protectedWorkflowPath(normalizedRel);
+  };
+  // Permit exactly one protected-baseline transition, never a general baseline write.
+  const exactPayloadLogBaselineUpdate = (beforeText, afterText) => {
+    let before;
+    let after;
+    try { before = JSON.parse(beforeText); after = JSON.parse(afterText); }
+    catch { return false; }
+    const oldEntry = before?.['test-payload-log.mjs'];
+    const newEntry = after?.['test-payload-log.mjs'];
+    if (!oldEntry || typeof oldEntry !== 'object' || Array.isArray(oldEntry)
+      || !newEntry || typeof newEntry !== 'object' || Array.isArray(newEntry)
+      || oldEntry.minPassed !== 0 || newEntry.minPassed !== 1) return false;
+    // Byte-level equality except the single minPassed numeric token.
+    const entryPattern = /^([ \t]*"test-payload-log\.mjs"[ \t]*:[ \t]*\{\r?\n)([\s\S]*?)(^[ \t]{2}\},?[ \t]*\r?$)/m;
+    const match = beforeText.match(entryPattern);
+    if (!match) return false;
+    const changedBody = match[2].replace(
+      /^([ \t]*"minPassed"[ \t]*:[ \t]*)0([ \t]*,?[ \t]*\r?)$/m,
+      (_full, prefix, suffix) => prefix + '1' + suffix
+    );
+    if (changedBody === match[2]) return false;
+    const expectedAfter = beforeText.replace(entryPattern, (_full, prefix, _body, suffix) => prefix + changedBody + suffix);
+    return afterText === expectedAfter;
+  };
   const resolved = [];
+  const targetKeys = new Set();
   // Populate trace with raw paths as we read the plan
   if (trace) { trace.rawPaths = []; trace.canonicalPaths = []; }
   for (const e of entries) {
     if (!e || typeof e.path !== 'string' || e.path.length === 0) throw new ApplyReject('ENTRY_INVALID', { entry: e });
     if (e.before_sha256 !== null && !(typeof e.before_sha256 === 'string' && /^[0-9a-f]{64}$/.test(e.before_sha256))) throw new ApplyReject('ENTRY_INVALID', { entry: e });
-    // Inline plan content is already in memory; record only its digest/length for reject audit.
     if (typeof e.content === 'string' && trace) {
       trace.contentDigests ??= [];
       trace.contentDigests.push({ sha256: createHash('sha256').update(e.content, 'utf8').digest('hex'), length: Buffer.byteLength(e.content, 'utf8') });
     }
-    // Validate the target and content source boundaries before reading source bytes.
     const v = validateWorkspacePath(e.path);
     if (!v.ok) throw new ApplyReject(v.reason, { path: e.path });
     const { abs, rel } = v;
-    if (!allowRel(rel)) throw new ApplyReject('NOT_ALLOWED', { rel });
+    const normalizedRel = rel.split(sep).join('/');
+    const baselineTarget = (WIN ? normalizedRel.toLowerCase() : normalizedRel) === 'wf/test-baseline.json';
+    const baselineCandidate = baselineTarget && entries.length === 1 && typeof e.before_sha256 === 'string';
+    if (!allowRel(rel) && !baselineCandidate) throw new ApplyReject('NOT_ALLOWED', { rel });
+
+    const targetKey = WIN ? abs.toLowerCase() : abs;
+    if (targetKeys.has(targetKey)) throw new ApplyReject('ENTRY_INVALID', { rel });
+    targetKeys.add(targetKey);
 
     let content = null;
     if (typeof e.content === 'string') content = e.content;
@@ -237,38 +291,108 @@ async function runApply(planPath, trace) {
       if (!source.ok) throw new ApplyReject(source.reason, { path: e.contentPath });
       try { content = readFileSync(source.abs, 'utf8'); }
       catch { throw new ApplyReject('CONTENT_UNREADABLE', { path: e.contentPath }); }
+      const sourceAgain = validateWorkspacePath(e.contentPath);
+      if (!sourceAgain.ok || sourceAgain.abs !== source.abs) {
+        throw new ApplyReject(sourceAgain.reason ?? 'TRAVERSAL', { path: e.contentPath });
+      }
     } else throw new ApplyReject('ENTRY_NO_CONTENT', { entry: e });
+    if (baselineCandidate) {
+      let beforeText;
+      try { beforeText = readFileSync(abs, 'utf8'); }
+      catch { throw new ApplyReject('NOT_ALLOWED', { rel }); }
+      if (!exactPayloadLogBaselineUpdate(beforeText, content)) throw new ApplyReject('NOT_ALLOWED', { rel });
+    }
     if (trace) { trace.rawPaths.push(e.path); trace.canonicalPaths.push(v.abs); }
-    resolved.push({ abs: v.abs, rel, before: e.before_sha256, content });
+    resolved.push({ abs: v.abs, rel, rawPath: e.path, before: e.before_sha256, content, original: null, temp: null });
   }
+
   const LOCK = join(WF, '.apply.lock');
   let fd = null;
   try { fd = openSync(LOCK, 'wx'); } catch { throw new ApplyReject('LOCKED', { lock: LOCK }); }
   const temps = [];
+  const committed = [];
   try {
     const stale = [];
     for (const e of resolved) {
-      const cur = existsSync(e.abs) ? createHash('sha256').update(readFileSync(e.abs)).digest('hex') : null;
+      const checked = validateWorkspacePath(e.rawPath);
+      if (!checked.ok) throw new ApplyReject(checked.reason, { path: e.rawPath });
+      if (checked.abs !== e.abs) throw new ApplyReject('TRAVERSAL', { path: e.rawPath });
+      const current = existsSync(e.abs) ? readFileSync(e.abs) : null;
+      const cur = current === null ? null : createHash('sha256').update(current).digest('hex');
+      e.original = current;
       if (cur !== e.before) stale.push({ path: e.rel, expected: e.before, actual: cur });
     }
-    if (stale.length) { throw new ApplyReject('STALE_REJECT', { stale }); }
-    // Test-only fault injection: WF_TEST_FAULT=after-lock (only when WF_TEST_MODE=1)
+    if (stale.length) throw new ApplyReject('STALE_REJECT', { stale });
+
+    // Preserve the established test fault: failure immediately after lock/stale validation, before staging.
     if (process.env.WF_TEST_MODE === '1' && process.env.WF_TEST_FAULT === 'after-lock') {
       throw new Error('TEST_FAULT_AFTER_LOCK');
     }
-    const written = [];
-    for (const e of resolved) {
-      const tmp = e.abs + '.tmp-apply-' + process.pid;
-      writeFileSync(tmp, e.content, 'utf8');
-      renameSync(tmp, e.abs);
-      written.push(e.rel);
+
+    // Stage every replacement before touching any target. Each temp is tracked for cleanup.
+    for (let i = 0; i < resolved.length; i++) {
+      const e = resolved[i];
+      const checked = validateWorkspacePath(e.rawPath);
+      if (!checked.ok) throw new ApplyReject(checked.reason, { path: e.rawPath });
+      if (checked.abs !== e.abs) throw new ApplyReject('TRAVERSAL', { path: e.rawPath });
+      const tmp = e.abs + '.tmp-apply-' + randomUUID();
+      const tempFd = openSync(tmp, 'wx');
+      temps.push(tmp); // Track only after exclusive creation proves we own this path.
+      try { writeFileSync(tempFd, e.content, 'utf8'); }
+      finally { closeSync(tempFd); }
+      e.temp = tmp;
     }
-    return { ok: true, written, writtenRel: written };
+
+    const written = [];
+    try {
+      // Revalidate and rehash each target immediately before its atomic replacement.
+      for (const e of resolved) {
+        const checked = validateWorkspacePath(e.rawPath);
+        if (!checked.ok) throw new ApplyReject(checked.reason, { path: e.rawPath });
+        if (checked.abs !== e.abs) throw new ApplyReject('TRAVERSAL', { path: e.rawPath });
+        const current = existsSync(e.abs) ? readFileSync(e.abs) : null;
+        const cur = current === null ? null : createHash('sha256').update(current).digest('hex');
+        if (cur !== e.before) {
+          throw new ApplyReject('STALE_REJECT', { stale: [{ path: e.rel, expected: e.before, actual: cur }] });
+        }
+        renameSync(e.temp, e.abs);
+        e.temp = null;
+        committed.push(e);
+        written.push(e.rel);
+      }
+      return { ok: true, written, writtenRel: written };
+    } catch (err) {
+      const rollbackFailed = [];
+      for (let i = committed.length - 1; i >= 0; i--) {
+        const e = committed[i];
+        try {
+          const checked = validateWorkspacePath(e.rawPath);
+          if (!checked.ok || checked.abs !== e.abs) throw new Error('ROLLBACK_TARGET_UNSAFE');
+          const current = existsSync(e.abs) ? readFileSync(e.abs) : null;
+          const currentHash = current === null ? null : createHash('sha256').update(current).digest('hex');
+          const appliedHash = createHash('sha256').update(e.content, 'utf8').digest('hex');
+          if (currentHash !== appliedHash) throw new Error('ROLLBACK_TARGET_CHANGED');
+          if (e.original === null) {
+            if (current !== null) unlinkSync(e.abs);
+          } else {
+            const rollbackTemp = e.abs + '.tmp-rollback-' + randomUUID();
+            const rollbackFd = openSync(rollbackTemp, 'wx');
+            temps.push(rollbackTemp); // Cleanup only files exclusively created by this rollback attempt.
+            try { writeFileSync(rollbackFd, e.original); }
+            finally { closeSync(rollbackFd); }
+            renameSync(rollbackTemp, e.abs);
+          }
+        } catch {
+          rollbackFailed.push(e.rel);
+        }
+      }
+      if (rollbackFailed.length) throw new ApplyReject('ROLLBACK_FAILED', { rollbackFailed });
+      if (err instanceof ApplyReject) throw err;
+      throw new ApplyReject('APPLY_ERROR');
+    }
   } finally {
-    // Release lock before logging (in finally so it runs even if error thrown)
     try { if (fd !== null) closeSync(fd); } catch { /* ignore */ }
     try { if (existsSync(LOCK)) unlinkSync(LOCK); } catch { /* ignore */ }
-    // Cleanup temps
     for (const t of temps) { try { if (existsSync(t)) unlinkSync(t); } catch { /* ignore */ } }
   }
 }
@@ -419,13 +543,13 @@ export function validateWorkspacePath(raw) {
   // Realpath with walk-up (like F1) - handles non-existent files by walking up to existing parent
   let real;
   try {
-    real = WIN ? realpathSync.native(abs) : realpathSync(abs);
+    real = realpathSync(abs);
   } catch {
     // Walk up to find existing parent
     let dir = dirname(abs);
     while (true) {
       try {
-        real = WIN ? realpathSync.native(dir) : realpathSync(dir);
+        real = realpathSync(dir);
         real = join(real, relative(dir, abs));
         break;
       } catch {
@@ -451,10 +575,12 @@ export function validateWorkspacePath(raw) {
   }
 
   // Blocklist trên relative path (để chặn trước realpath)
-  const normRel = normSeg(rel);
+  const normRel = normSeg(rr);
   if (BLOCK_RE.test(normRel)) return { ok: false, reason: 'BLOCKED_PATH', path: raw, canonicalRel: canon.canonical };
 
-  return { ok: true, abs, rel, rawPath: raw, canonicalRel: canon.canonical };
+  // Use the resolved in-root path for subsequent reads/writes and policy checks.
+  // This prevents a junction/symlink alias from bypassing protected-path rules.
+  return { ok: true, abs: real, rel: rr, rawPath: raw, canonicalRel: canon.canonical };
 }
 
 export function canonical(v) {
