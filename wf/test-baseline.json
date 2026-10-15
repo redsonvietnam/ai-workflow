@@ -152,7 +152,7 @@
     }
   },
   "test-p0-control-protection.mjs": {
-    "minPassed": 64,
+    "minPassed": 68,
     "maxSkipped": {
       "win32": 1,
       "linux": 1,

@@ -104,6 +104,8 @@ function targetBytes(workspace, rel) {
 }
 
 const protectedPaths = [
+  'LOG.md',
+  'log.md',
   'wf/pipeline.mjs',
   'wf/verify-standalone.mjs',
   'wf/prereg-manifest.json',

@@ -226,7 +226,7 @@ async function runApply(planPath, trace) {
       'wf/state.json', 'wf/test-baseline.json', 'wf/wf-v1.schema.json',
       'wf/payload-log.mjs', 'wf/payload-log-cli.mjs', 'wf/run-all.mjs',
       'wf/check-syntax.mjs', 'wf/git-gate.ps1', 'wf/report.mjs',
-      'wf/secret-patterns.json', 'wf/.apply.lock', 'log.md'
+      'wf/secret-patterns.json', 'wf/.apply.lock', 'LOG.md', 'log.md'
     ].includes(key)) return true;
     if (/^wf\/(?:\.run|lib)(?:\/|$)/i.test(p)) return true;
     if (/^wf\/test-[^/]+\.mjs$/i.test(p)) return true;
