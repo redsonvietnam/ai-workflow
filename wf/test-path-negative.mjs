@@ -1,7 +1,7 @@
 ﻿// F1 suite ΓÇö path validation ├óm t├¡nh (P01-P20) + parser differential.
 // Chß║íy tr├¬n HEAD tr╞░ß╗¢c fix => thu thß║¡p danh s├ích ca ─Éß╗Ä, rß╗ôi mß╗¢i sß╗¡a code.
 import { spawnSync } from 'node:child_process';
-import { mkdtempSync, mkdirSync, writeFileSync, existsSync, rmSync, symlinkSync, readFileSync, unlinkSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, existsSync, rmSync, symlinkSync, readFileSync, unlinkSync, lstatSync, realpathSync } from 'node:fs';
 import { join, dirname, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { tmpDir, run as harnessRun, parse, check, skip, done } from './lib/test-harness.mjs';
@@ -16,7 +16,11 @@ function planRun(root, files) {
   const p = join(root, 'plan-t160.json');
   for (const f of files) {
     if (f && f.before_sha256 === null && typeof f.path === 'string') {
-      try { unlinkSync(resolve(root, f.path)); } catch {}
+      try {
+        const target = resolve(root, f.path);
+        // Keep a final-component symlink in place so apply must validate/reject it.
+        if (!lstatSync(target).isSymbolicLink()) unlinkSync(target);
+      } catch {}
     }
   }
   writeFileSync(p, JSON.stringify({ files }));
@@ -126,11 +130,10 @@ writeFileSync(join(ROOT, 'docs', '.environment'), 'N');
 const m19c = runMake(ROOT, 'docs/.environment');
 check('P19c-dot-environment', m19c.status === 0 && !/BLOCKED_PATH/.test(m19c.stderr), `status=${m19c.status} err=${m19c.stderr.trim()}`);
 
-skip('P20-toctou', 'KNOWN LIMITATION (P20): Time-of-Check-Time-of-Use (TOCTOU) race condition not mitigated. ' +
-  'Window exists between validateWorkspacePath() check and writeFileSync/renameSync execution. ' +
-  'Attacker could replace target with symlink/junction between check and write. ' +
-  'Mitigation (e.g., open with O_NOFOLLOW, atomic rename) deferred per Claude decision: ' +
-  'accept risk, document limitation, handle in future if needed.');
+skip('P20-toctou', 'RESIDUAL LIMITATION (P20): partial mitigation now revalidates canonical paths and rehashes ' +
+  'each target after the initial stale pass and immediately before rename; deterministic post-stale races are rejected. ' +
+  'A narrow filesystem race between the final check and rename is not proven impossible, and crash-safe multi-file ' +
+  'atomicity is not provided. Full elimination needs platform-specific handle-relative/no-follow primitives or a narrower threat model.');
 
 // ===== GROUP 2: apply (plan) =====
 const a1 = planRun(ROOT, [{ path: '../escape-plan.txt', before_sha256: null, content: 'E' }]);
@@ -256,7 +259,7 @@ if (nodeMajor > 20 || (nodeMajor === 20 && nodeMinor >= 6)) {
     'mod.syncBuiltinESMExports();',
   ].join('\n'));
   const plan = join(ROOT, 'plan-pdstub.json');
-  const targetAbs = join(ROOT, 'wf', 'pd-stub.txt');
+  const targetAbs = join(realpathSync(join(ROOT, 'wf')), 'pd-stub.txt');
   writeFileSync(plan, JSON.stringify({ files: [{ path: 'wf/pd-stub.txt', before_sha256: null, content: 'S' }] }));
   const r = spawnSync(process.execPath, ['--import', pathToFileURL(stub).href, PIPE, 'apply', plan], { encoding: 'utf8', env: { ...process.env, WF_ROOT: ROOT }, timeout: 15000 });
   const lines = (r.stderr || '').split(/\r?\n/).filter(l => l.startsWith('STUB_R:'));

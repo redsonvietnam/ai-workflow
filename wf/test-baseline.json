@@ -134,5 +134,29 @@
       "linux": 1,
       "darwin": 1
     }
+  },
+  "test-p0-apply-boundary.mjs": {
+    "minPassed": 31,
+    "maxSkipped": {
+      "win32": 1,
+      "linux": 1,
+      "darwin": 1
+    }
+  },
+  "test-p0-apply-hardening.mjs": {
+    "minPassed": 21,
+    "maxSkipped": {
+      "win32": 1,
+      "linux": 1,
+      "darwin": 1
+    }
+  },
+  "test-p0-control-protection.mjs": {
+    "minPassed": 80,
+    "maxSkipped": {
+      "win32": 1,
+      "linux": 1,
+      "darwin": 1
+    }
   }
 }

@@ -1,4 +1,5 @@
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve, relative, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -36,9 +37,9 @@ function seedForMake(root, input) {
 function makeInput(root, input) {
   return run(root, ['make', 'task=T160', 'objective=path-matrix', 'files=' + input]);
 }
-function applyInput(root, input) {
+function applyInput(root, input, beforeSha = null) {
   const plan = join(root, 'plan.json');
-  writeFileSync(plan, JSON.stringify({ files: [{ path: input, before_sha256: null, content: 'MATRIX' }] }));
+  writeFileSync(plan, JSON.stringify({ files: [{ path: input, before_sha256: beforeSha, content: 'MATRIX' }] }));
   return run(root, ['apply', plan]);
 }
 function applyAllowlisted(input) {
@@ -65,6 +66,64 @@ try {
       check(item.id + ' apply reason', got === item.expect, 'got=' + got + ' expect=' + item.expect + ' status=' + a.status);
       continue;
     }
+
+    // A-P26: separate canonical-path contract from a literal trailing-space filename.
+    // The main parity case has the normalized target present for both make and apply.
+    if (item.id === 'A-P26-apply-xenv-trailing-space-ok') {
+      const canonicalMakePath = join(makeRoot, 'wf', 'x.env');
+      const canonicalApplyPath = join(applyRoot, 'wf', 'x.env');
+      writeFileSync(canonicalMakePath, 'fixture');
+      writeFileSync(canonicalApplyPath, 'before');
+      const beforeSha = createHash('sha256').update('before', 'utf8').digest('hex');
+
+      const m = makeInput(makeRoot, input);
+      check(item.id + ' make canonical fixture', reasonMake(m) === 'OK',
+        'got=' + reasonMake(m) + ' status=' + m.status);
+
+      const a = applyInput(applyRoot, applyInputValue, beforeSha);
+      check(item.id + ' apply canonical fixture', reasonApply(a) === 'OK',
+        'got=' + reasonApply(a) + ' status=' + a.status);
+      check(item.id + ' apply wrote canonical target',
+        existsSync(canonicalApplyPath) && readFileSync(canonicalApplyPath, 'utf8') === 'MATRIX',
+        'canonicalExists=' + existsSync(canonicalApplyPath));
+
+      // A literal trailing-space file is a different filesystem entry. With no
+      // canonical target, make must report FILE_MISSING; apply may create the
+      // canonical target because its before_sha256 is null.
+      const rawMakeRoot = newRoot('wf-path-raw-make-');
+      const rawApplyRoot = newRoot('wf-path-raw-apply-');
+      roots.push(rawMakeRoot, rawApplyRoot);
+      seedForMake(rawMakeRoot, input);
+      seedForMake(rawApplyRoot, applyInputValue);
+      const rawMakePath = join(rawMakeRoot, 'wf', 'x.env ');
+      const rawCanonicalMakePath = join(rawMakeRoot, 'wf', 'x.env');
+      const rawApplyPath = join(rawApplyRoot, 'wf', 'x.env ');
+      const rawCanonicalApplyPath = join(rawApplyRoot, 'wf', 'x.env');
+
+      check(item.id + ' raw fixture exists only at literal path',
+        existsSync(rawMakePath) && !existsSync(rawCanonicalMakePath),
+        'rawExists=' + existsSync(rawMakePath) + ' canonicalExists=' + existsSync(rawCanonicalMakePath));
+
+      const rawMake = makeInput(rawMakeRoot, input);
+      check(item.id + ' raw-only fixture make FILE_MISSING',
+        reasonMake(rawMake) === 'FILE_MISSING',
+        'got=' + reasonMake(rawMake) + ' status=' + rawMake.status);
+
+      check(item.id + ' raw apply fixture filesystem before apply',
+        existsSync(rawApplyPath) && !existsSync(rawCanonicalApplyPath),
+        'rawExists=' + existsSync(rawApplyPath) + ' canonicalExists=' + existsSync(rawCanonicalApplyPath));
+      const rawApply = applyInput(rawApplyRoot, applyInputValue);
+      check(item.id + ' raw-only fixture apply creates canonical target',
+        reasonApply(rawApply) === 'OK' && existsSync(rawCanonicalApplyPath),
+        'got=' + reasonApply(rawApply) + ' status=' + rawApply.status +
+        ' canonicalExists=' + existsSync(rawCanonicalApplyPath));
+      check(item.id + ' raw-only fixture apply content is exact MATRIX',
+        existsSync(rawCanonicalApplyPath) && readFileSync(rawCanonicalApplyPath, 'utf8') === 'MATRIX',
+        'canonicalExists=' + existsSync(rawCanonicalApplyPath) +
+        ' content=' + (existsSync(rawCanonicalApplyPath) ? JSON.stringify(readFileSync(rawCanonicalApplyPath, 'utf8')) : '<missing>'));
+      continue;
+    }
+
     if (item.expect === 'OK' || item.expect === 'NOT_ALLOWED') seedForMake(makeRoot, input);
     if (['P14-symlink-out', 'P15-symlink-to-git', 'P15b-double-junction'].includes(item.id)) {
       const outDir = mkdtempSync(join(tmpdir(), 'wf-path-out-'));
