@@ -1,7 +1,7 @@
 ﻿// F1 suite ΓÇö path validation ├óm t├¡nh (P01-P20) + parser differential.
 // Chß║íy tr├¬n HEAD tr╞░ß╗¢c fix => thu thß║¡p danh s├ích ca ─Éß╗Ä, rß╗ôi mß╗¢i sß╗¡a code.
 import { spawnSync } from 'node:child_process';
-import { mkdtempSync, mkdirSync, writeFileSync, existsSync, rmSync, symlinkSync, readFileSync, unlinkSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, existsSync, rmSync, symlinkSync, readFileSync, unlinkSync, lstatSync } from 'node:fs';
 import { join, dirname, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { tmpDir, run as harnessRun, parse, check, skip, done } from './lib/test-harness.mjs';
@@ -16,7 +16,11 @@ function planRun(root, files) {
   const p = join(root, 'plan-t160.json');
   for (const f of files) {
     if (f && f.before_sha256 === null && typeof f.path === 'string') {
-      try { unlinkSync(resolve(root, f.path)); } catch {}
+      try {
+        const target = resolve(root, f.path);
+        // Keep a final-component symlink in place so apply must validate/reject it.
+        if (!lstatSync(target).isSymbolicLink()) unlinkSync(target);
+      } catch {}
     }
   }
   writeFileSync(p, JSON.stringify({ files }));

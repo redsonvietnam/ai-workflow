@@ -525,7 +525,11 @@ export function validateWorkspacePath(raw) {
   const rawRel = relative(ROOT, rawAbs);
   if (escapesRoot(rawRel)) return { ok: false, reason: 'TRAVERSAL', path: raw };
 
-  const canon = canonicalizeRel(raw);
+  // On POSIX, accept an absolute path only after the containment pre-check above,
+  // then canonicalize it relative to the workspace rather than as a root-relative segment.
+  // Windows drive/UNC paths remain handled by canonicalizeRel(raw).
+  const canonicalInput = !WIN && isAbsolute(rawNorm) ? rawRel : raw;
+  const canon = canonicalizeRel(canonicalInput);
   if (!canon.ok) return { ok: false, reason: canon.reason, path: raw, canonicalRel: canon.canonical };
 
   // Resolve path using canonical form
