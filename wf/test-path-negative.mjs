@@ -1,7 +1,7 @@
 ﻿// F1 suite ΓÇö path validation ├óm t├¡nh (P01-P20) + parser differential.
 // Chß║íy tr├¬n HEAD tr╞░ß╗¢c fix => thu thß║¡p danh s├ích ca ─Éß╗Ä, rß╗ôi mß╗¢i sß╗¡a code.
 import { spawnSync } from 'node:child_process';
-import { mkdtempSync, mkdirSync, writeFileSync, existsSync, rmSync, symlinkSync, readFileSync, unlinkSync, lstatSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, existsSync, rmSync, symlinkSync, readFileSync, unlinkSync, lstatSync, realpathSync } from 'node:fs';
 import { join, dirname, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { tmpDir, run as harnessRun, parse, check, skip, done } from './lib/test-harness.mjs';
@@ -259,7 +259,7 @@ if (nodeMajor > 20 || (nodeMajor === 20 && nodeMinor >= 6)) {
     'mod.syncBuiltinESMExports();',
   ].join('\n'));
   const plan = join(ROOT, 'plan-pdstub.json');
-  const targetAbs = join(ROOT, 'wf', 'pd-stub.txt');
+  const targetAbs = join(realpathSync(join(ROOT, 'wf')), 'pd-stub.txt');
   writeFileSync(plan, JSON.stringify({ files: [{ path: 'wf/pd-stub.txt', before_sha256: null, content: 'S' }] }));
   const r = spawnSync(process.execPath, ['--import', pathToFileURL(stub).href, PIPE, 'apply', plan], { encoding: 'utf8', env: { ...process.env, WF_ROOT: ROOT }, timeout: 15000 });
   const lines = (r.stderr || '').split(/\r?\n/).filter(l => l.startsWith('STUB_R:'));
