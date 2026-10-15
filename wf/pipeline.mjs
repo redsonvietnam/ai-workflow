@@ -221,9 +221,14 @@ async function runApply(planPath, trace) {
   const protectedWorkflowPath = (rel) => {
     const p = rel.split(sep).join('/');
     const key = WIN ? p.toLowerCase() : p;
-    if (['wf/pipeline.mjs', 'wf/verify-standalone.mjs', 'wf/prereg-manifest.json',
+    if ([
+      'wf/pipeline.mjs', 'wf/verify-standalone.mjs', 'wf/prereg-manifest.json',
       'wf/state.json', 'wf/test-baseline.json', 'wf/wf-v1.schema.json',
-      'wf/logs/code-local-payloads.jsonl', 'log.md'].includes(key)) return true;
+      'wf/payload-log.mjs', 'wf/payload-log-cli.mjs', 'wf/run-all.mjs',
+      'wf/check-syntax.mjs', 'wf/git-gate.ps1', 'wf/report.mjs',
+      'wf/secret-patterns.json', 'wf/.apply.lock', 'log.md'
+    ].includes(key)) return true;
+    if (/^wf\/(?:\.run|lib)(?:\/|$)/i.test(p)) return true;
     if (/^wf\/test-[^/]+\.mjs$/i.test(p)) return true;
     if (/^wf\/[^/]*baseline[^/]*\.json$/i.test(p)) return true;
     if (/^wf\/verdict-[^/]+\.json$/i.test(p)) return true;

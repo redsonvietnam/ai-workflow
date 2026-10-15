@@ -150,5 +150,13 @@
       "linux": 1,
       "darwin": 1
     }
+  },
+  "test-p0-control-protection.mjs": {
+    "minPassed": 64,
+    "maxSkipped": {
+      "win32": 1,
+      "linux": 1,
+      "darwin": 1
+    }
   }
 }
